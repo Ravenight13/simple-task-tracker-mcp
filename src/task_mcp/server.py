@@ -66,6 +66,45 @@ def list_tasks(
         conn.close()
 
 
+@mcp.tool()
+def search_tasks(
+    search_term: str,
+    workspace_path: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Search tasks by title or description (full-text).
+
+    Args:
+        search_term: Search term to match in title or description
+        workspace_path: Optional workspace path
+
+    Returns:
+        List of matching tasks
+    """
+    from .database import get_connection
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        query = """
+            SELECT * FROM tasks
+            WHERE deleted_at IS NULL
+            AND (
+                title LIKE ? OR description LIKE ?
+            )
+            ORDER BY created_at DESC
+        """
+
+        search_pattern = f"%{search_term}%"
+        cursor.execute(query, (search_pattern, search_pattern))
+        rows = cursor.fetchall()
+
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 def main() -> None:
     """Main entry point for the Task MCP server."""
     mcp.run()
