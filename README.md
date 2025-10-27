@@ -2,6 +2,16 @@
 
 A lightweight Model Context Protocol (MCP) server for task and subtask tracking during agentic AI development. Provides isolated SQLite databases per project workspace for Claude Code and Claude Desktop integration.
 
+## What's New in v0.2.0 🎉
+
+**Released:** 2025-10-27
+
+- ✨ **Auto-Capture Session ID**: Tasks now automatically capture the conversation ID in `created_by` field (no manual tracking needed)
+- 🕐 **Consistent Timestamps**: All timestamp fields now use ISO 8601 format (`YYYY-MM-DDTHH:MM:SS.microseconds`)
+- 🔧 **True Partial Updates**: Update only the fields you want to change (no workaround required)
+
+All changes are backward compatible with v0.1.0. See [CHANGELOG.md](CHANGELOG.md) for full details.
+
 ## Features
 
 ### 🎯 Core Capabilities
