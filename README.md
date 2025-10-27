@@ -420,3 +420,152 @@ Set friendly name for a project.
 ```python
 set_project_name("/path/to/project", "My Awesome Project")
 ```
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run with coverage
+uv run pytest --cov=task_mcp --cov-report=html
+
+# Run specific test file
+uv run pytest tests/test_database.py -v
+
+# Run specific test
+uv run pytest tests/test_database.py::TestDatabase::test_get_connection_creates_database
+```
+
+### Quality Gates
+
+```bash
+# Linting
+uv run ruff check src/ tests/
+
+# Type checking
+uv run mypy src/
+
+# Format code
+uv run black src/ tests/
+```
+
+### Project Structure
+
+```
+task-mcp/
+├── src/task_mcp/
+│   ├── __init__.py
+│   ├── server.py          # FastMCP server + tool registration
+│   ├── database.py        # Project database operations
+│   ├── master.py          # Master database (project registry)
+│   ├── models.py          # Pydantic data models
+│   └── utils.py           # Utilities (workspace detection, hashing)
+├── tests/
+│   ├── test_database.py   # Database integration tests
+│   ├── test_models.py     # Model validation tests
+│   └── test_mcp_tools.py  # MCP tools integration tests
+├── pyproject.toml         # Project configuration
+└── README.md
+```
+
+### Database Schema
+
+**Tasks Table** (`tasks`):
+```sql
+CREATE TABLE tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled')),
+    priority TEXT DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
+    parent_task_id INTEGER,
+    depends_on TEXT,  -- JSON array of task IDs
+    tags TEXT,  -- Space-separated tags
+    blocker_reason TEXT,
+    file_references TEXT,  -- JSON array of file paths
+    created_by TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    FOREIGN KEY (parent_task_id) REFERENCES tasks(id)
+);
+
+-- Indexes
+CREATE INDEX idx_status ON tasks(status);
+CREATE INDEX idx_parent ON tasks(parent_task_id);
+CREATE INDEX idx_deleted ON tasks(deleted_at);
+CREATE INDEX idx_tags ON tasks(tags);
+```
+
+**Projects Table** (`master.db`):
+```sql
+CREATE TABLE projects (
+    id TEXT PRIMARY KEY,  -- 8-char hash
+    workspace_path TEXT UNIQUE NOT NULL,
+    friendly_name TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_last_accessed ON projects(last_accessed);
+```
+
+## Troubleshooting
+
+### Database Location
+
+Databases are stored at:
+- Project databases: `~/.task-mcp/databases/project_{hash}.db`
+- Master database: `~/.task-mcp/master.db`
+
+To inspect manually:
+```bash
+sqlite3 ~/.task-mcp/master.db "SELECT * FROM projects;"
+```
+
+### Workspace Detection Issues
+
+Check workspace resolution priority:
+1. Explicit `workspace_path` parameter (highest priority)
+2. `TASK_MCP_WORKSPACE` environment variable
+3. Current working directory (fallback)
+
+Verify workspace detection:
+```python
+from task_mcp.utils import resolve_workspace
+print(resolve_workspace())
+```
+
+### Reset Project Database
+
+```bash
+# Find project hash
+python -c "from task_mcp.utils import hash_workspace_path; print(hash_workspace_path('/path/to/project'))"
+
+# Remove database
+rm ~/.task-mcp/databases/project_{hash}.db
+```
+
+## License
+
+MIT License - see LICENSE file
+
+## Contributing
+
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all quality gates pass (ruff, mypy, pytest)
+5. Submit a pull request
+
+## Acknowledgments
+
+Built with:
+- [FastMCP](https://github.com/jlowin/fastmcp) - MCP server framework
+- [Pydantic v2](https://docs.pydantic.dev/) - Data validation
+- SQLite - Embedded database
