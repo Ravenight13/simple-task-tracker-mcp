@@ -30,6 +30,12 @@ def list_tasks(
         List of task objects matching filters
     """
     from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     conn = get_connection(workspace_path)
     cursor = conn.cursor()
@@ -104,8 +110,13 @@ def create_task(
     from datetime import datetime
 
     from .database import get_connection
+    from .master import register_project
     from .models import TaskCreate
-    from .utils import validate_description_length
+    from .utils import resolve_workspace, validate_description_length
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     # Auto-capture session ID if created_by not provided and context available
     if created_by is None and ctx is not None:
@@ -192,6 +203,12 @@ def get_task(
         ValueError: If task not found or soft-deleted
     """
     from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     conn = get_connection(workspace_path)
     cursor = conn.cursor()
@@ -253,8 +270,13 @@ def update_task(
     from datetime import datetime
 
     from .database import get_connection
+    from .master import register_project
     from .models import TaskUpdate, validate_status_transition
-    from .utils import validate_description_length
+    from .utils import resolve_workspace, validate_description_length
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     # Validate description length
     if description is not None:
@@ -408,6 +430,12 @@ def search_tasks(
         List of matching tasks
     """
     from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     conn = get_connection(workspace_path)
     cursor = conn.cursor()
@@ -471,11 +499,15 @@ def get_project_info(
         Project info with task counts by status and priority
     """
     from .database import get_connection
-    from .master import get_master_connection
-    from .utils import hash_workspace_path
+    from .master import get_master_connection, register_project
+    from .utils import hash_workspace_path, resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     # Get project metadata
-    project_id = hash_workspace_path(workspace_path)
+    project_id = hash_workspace_path(workspace)
 
     master_conn = get_master_connection()
     master_cursor = master_conn.cursor()
@@ -592,6 +624,12 @@ def get_task_tree(
     import sqlite3
 
     from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     def fetch_with_subtasks(conn: sqlite3.Connection, tid: int) -> dict[str, Any] | None:
         cursor = conn.cursor()
@@ -652,6 +690,12 @@ def delete_task(
     from datetime import datetime
 
     from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     conn = get_connection(workspace_path)
     cursor = conn.cursor()
@@ -709,6 +753,12 @@ def get_blocked_tasks(
         List of blocked tasks with blocker_reason field
     """
     from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     conn = get_connection(workspace_path)
     cursor = conn.cursor()
@@ -742,6 +792,12 @@ def get_next_tasks(
     import json
 
     from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     conn = get_connection(workspace_path)
     cursor = conn.cursor()
@@ -801,6 +857,12 @@ def cleanup_deleted_tasks(
     from datetime import datetime, timedelta
 
     from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
 
     conn = get_connection(workspace_path)
     cursor = conn.cursor()

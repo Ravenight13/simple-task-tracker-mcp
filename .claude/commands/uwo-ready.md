@@ -73,26 +73,36 @@ CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "none")
 WORKING_DIR=$(pwd)
 
 # Detect context from branch name
-if [[ "$CURRENT_BRANCH" =~ ^feat/ ]]; then
-    CONTEXT_HINT="DEVELOPMENT"
-elif [[ "$CURRENT_BRANCH" =~ ^test/ ]]; then
-    CONTEXT_HINT="TESTING"
-elif [[ "$CURRENT_BRANCH" =~ ^docs/ ]]; then
-    CONTEXT_HINT="DOCUMENTATION"
-elif [[ "$CURRENT_BRANCH" =~ ^fix/ ]]; then
-    CONTEXT_HINT="BUGFIX"
-else
-    CONTEXT_HINT="GENERAL"
-fi
+case "$CURRENT_BRANCH" in
+    feat*)
+        CONTEXT_HINT="DEVELOPMENT"
+        ;;
+    test*)
+        CONTEXT_HINT="TESTING"
+        ;;
+    docs*)
+        CONTEXT_HINT="DOCUMENTATION"
+        ;;
+    fix*)
+        CONTEXT_HINT="BUGFIX"
+        ;;
+    *)
+        CONTEXT_HINT="GENERAL"
+        ;;
+esac
 
-# Detect from directory
-if [[ "$WORKING_DIR" =~ /tests?/ ]]; then
-    CONTEXT_HINT="TESTING"
-elif [[ "$WORKING_DIR" =~ /docs/ ]]; then
-    CONTEXT_HINT="DOCUMENTATION"
-elif [[ "$WORKING_DIR" =~ /(src|lib|app)/ ]]; then
-    CONTEXT_HINT="DEVELOPMENT"
-fi
+# Detect from directory (use case for pattern matching)
+case "$WORKING_DIR" in
+    */test/*|*/tests/*)
+        CONTEXT_HINT="TESTING"
+        ;;
+    */docs/*)
+        CONTEXT_HINT="DOCUMENTATION"
+        ;;
+    */src/*|*/lib/*|*/app/*)
+        CONTEXT_HINT="DEVELOPMENT"
+        ;;
+esac
 
 echo "📍 Detected Context: $CONTEXT_HINT"
 echo "🌿 Branch: $CURRENT_BRANCH"
