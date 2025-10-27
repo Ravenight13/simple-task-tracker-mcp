@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 
 # Initialize MCP server
 mcp = FastMCP("Task Tracker")
@@ -69,6 +69,7 @@ def list_tasks(
 @mcp.tool()
 def create_task(
     title: str,
+    ctx: Context,
     workspace_path: str | None = None,
     description: str | None = None,
     status: str = "todo",
@@ -84,6 +85,7 @@ def create_task(
 
     Args:
         title: Task title (required)
+        ctx: FastMCP context (auto-injected)
         workspace_path: Optional workspace path (auto-detected if not provided)
         description: Task description (max 10k chars)
         status: Task status (default: "todo")
@@ -92,7 +94,7 @@ def create_task(
         depends_on: List of task IDs this depends on
         tags: Space-separated tags
         file_references: List of file paths
-        created_by: Conversation ID
+        created_by: Conversation ID (auto-captured from session if not provided)
 
     Returns:
         Created task object with all fields
@@ -104,6 +106,10 @@ def create_task(
     from .database import get_connection
     from .models import TaskCreate
     from .utils import validate_description_length
+
+    # Auto-capture session ID if created_by not provided
+    if created_by is None:
+        created_by = ctx.session_id
 
     # Validate description length
     if description:
