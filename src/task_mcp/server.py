@@ -99,6 +99,7 @@ def create_task(
     """
     # Import at function level
     import json
+    from datetime import datetime
 
     from .database import get_connection
     from .models import TaskCreate
@@ -125,14 +126,18 @@ def create_task(
     conn = get_connection(workspace_path)
     cursor = conn.cursor()
 
+    # Generate ISO 8601 timestamp for creation
+    now = datetime.now().isoformat()
+
     try:
-        # Insert task
+        # Insert task with explicit timestamps
         cursor.execute(
             """
             INSERT INTO tasks (
                 title, description, status, priority, parent_task_id,
-                depends_on, tags, blocker_reason, file_references, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                depends_on, tags, blocker_reason, file_references, created_by,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 task_data.title,
@@ -145,6 +150,8 @@ def create_task(
                 task_data.blocker_reason,
                 task_data.file_references,
                 task_data.created_by,
+                now,  # created_at
+                now,  # updated_at
             ),
         )
 

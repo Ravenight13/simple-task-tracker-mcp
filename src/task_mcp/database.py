@@ -58,8 +58,8 @@ def init_schema(conn: sqlite3.Connection) -> None:
     - blocker_reason TEXT
     - file_references TEXT (JSON array)
     - created_by TEXT
-    - created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    - updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    - created_at TIMESTAMP
+    - updated_at TIMESTAMP
     - completed_at TIMESTAMP
     - deleted_at TIMESTAMP
 
@@ -89,8 +89,8 @@ def init_schema(conn: sqlite3.Connection) -> None:
             blocker_reason TEXT,
             file_references TEXT,
             created_by TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP,
+            updated_at TIMESTAMP,
             completed_at TIMESTAMP,
             deleted_at TIMESTAMP,
             FOREIGN KEY (parent_task_id) REFERENCES tasks(id)
