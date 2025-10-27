@@ -71,6 +71,7 @@ Apply universal-workflow-orchestrator at session start when:
 - Need consistent workflow setup with quality discipline
 - Want automated context detection and tool validation
 - Require best practice enforcement from session start
+- Orchestrating parallel subagents with file output requirements
 
 **Frequency**: Every development session
 
@@ -85,6 +86,7 @@ Apply universal-workflow-orchestrator at session start when:
 2. **Workflow Loading**: Apply task-specific workflow guidance
 3. **Health Validation**: Check git status, quality tools, documentation
 4. **Checklist Generation**: Provide structured session start template
+5. **Directory Setup**: Early creation of subagent output directories (if not exists)
 
 **Benefits**:
 - Consistent session start across all projects
@@ -136,6 +138,41 @@ Apply universal-workflow-orchestrator at session start when:
 - Complex tasks → spawn multiple subagents in parallel
 - Example: 10 component reviews → 10 parallel agents = 10x speedup
 - Benefits: Speed, expertise, token efficiency, clarity
+
+**Subagent File Output Protocols (CRITICAL)**:
+- **MANDATORY**: All subagents MUST write their findings to files (not just report back verbally)
+- **File locations**:
+  - Research findings: `docs/subagent-reports/{agent-type}/{component}/YYYY-MM-DD-HHMM-description.md`
+  - Session handoffs: `session-handoffs/YYYY-MM-DD-HHMM-description.md`
+  - Analysis results: `docs/analysis/YYYY-MM-DD-HHMM-description.md`
+- **Micro-commit requirement**: Subagents must commit their files immediately upon completion
+- **Rationale**: Prevents work loss if main session crashes, provides audit trail, enables async review
+
+**Example workflow**:
+```
+User: "Analyze these 5 API endpoints using parallel subagents"
+
+Claude (Main Chat):
+  → Spawns 5 subagents (one per endpoint)
+
+Subagent 1:
+  → Analyzes endpoint-auth
+  → Writes findings to docs/subagent-reports/api-analysis/auth/2025-10-27-1400-auth-analysis.md
+  → Commits file: "docs(api): add auth endpoint analysis by subagent"
+  → Returns summary to main chat
+
+Subagent 2-5: (same pattern)
+
+Main Chat:
+  → Synthesizes 5 subagent reports
+  → Creates consolidated recommendation
+```
+
+**Benefits**:
+- Work preserved even if session crashes mid-analysis
+- Audit trail of all subagent work
+- Can be reviewed asynchronously
+- Enables handoff between sessions
 
 **2. Micro-Commit Discipline**:
 - Target: ≤30 minutes between commits
