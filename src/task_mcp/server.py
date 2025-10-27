@@ -67,6 +67,100 @@ def list_tasks(
 
 
 @mcp.tool()
+def create_task(
+    title: str,
+    workspace_path: str | None = None,
+    description: str | None = None,
+    status: str = "todo",
+    priority: str = "medium",
+    parent_task_id: int | None = None,
+    depends_on: list[int] | None = None,
+    tags: str | None = None,
+    file_references: list[str] | None = None,
+    created_by: str | None = None,
+) -> dict[str, Any]:
+    """
+    Create a new task with validation.
+
+    Args:
+        title: Task title (required)
+        workspace_path: Optional workspace path (auto-detected if not provided)
+        description: Task description (max 10k chars)
+        status: Task status (default: "todo")
+        priority: Priority level (default: "medium")
+        parent_task_id: Parent task ID for subtasks
+        depends_on: List of task IDs this depends on
+        tags: Space-separated tags
+        file_references: List of file paths
+        created_by: Conversation ID
+
+    Returns:
+        Created task object with all fields
+    """
+    # Import at function level
+    import json
+
+    from .database import get_connection
+    from .models import TaskCreate
+    from .utils import validate_description_length
+
+    # Validate description length
+    if description:
+        validate_description_length(description)
+
+    # Create TaskCreate model to validate inputs
+    task_data = TaskCreate(
+        title=title,
+        description=description,
+        status=status,
+        priority=priority,
+        parent_task_id=parent_task_id,
+        depends_on=json.dumps(depends_on) if depends_on else None,
+        tags=tags,
+        file_references=json.dumps(file_references) if file_references else None,
+        created_by=created_by,
+    )
+
+    # Get database connection
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Insert task
+        cursor.execute(
+            """
+            INSERT INTO tasks (
+                title, description, status, priority, parent_task_id,
+                depends_on, tags, blocker_reason, file_references, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                task_data.title,
+                task_data.description,
+                task_data.status,
+                task_data.priority,
+                task_data.parent_task_id,
+                task_data.depends_on,
+                task_data.tags,
+                task_data.blocker_reason,
+                task_data.file_references,
+                task_data.created_by,
+            ),
+        )
+
+        task_id = cursor.lastrowid
+        conn.commit()
+
+        # Fetch created task
+        cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = cursor.fetchone()
+
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
 def search_tasks(
     search_term: str,
     workspace_path: str | None = None,
@@ -132,6 +226,80 @@ def list_projects() -> list[dict[str, Any]]:
 
 
 @mcp.tool()
+def get_project_info(
+    workspace_path: str,
+) -> dict[str, Any]:
+    """
+    Get project metadata and task statistics.
+
+    Args:
+        workspace_path: Project workspace path
+
+    Returns:
+        Project info with task counts by status and priority
+    """
+    from .database import get_connection
+    from .master import get_master_connection
+    from .utils import hash_workspace_path
+
+    # Get project metadata
+    project_id = hash_workspace_path(workspace_path)
+
+    master_conn = get_master_connection()
+    master_cursor = master_conn.cursor()
+
+    try:
+        master_cursor.execute(
+            "SELECT * FROM projects WHERE id = ?",
+            (project_id,)
+        )
+        project_row = master_cursor.fetchone()
+
+        if not project_row:
+            raise ValueError(f"Project not found: {workspace_path}")
+
+        project_info = dict(project_row)
+    finally:
+        master_conn.close()
+
+    # Get task statistics
+    task_conn = get_connection(workspace_path)
+    task_cursor = task_conn.cursor()
+
+    try:
+        # Total tasks
+        task_cursor.execute("SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL")
+        project_info['total_tasks'] = task_cursor.fetchone()['count']
+
+        # By status
+        task_cursor.execute("""
+            SELECT status, COUNT(*) as count FROM tasks
+            WHERE deleted_at IS NULL
+            GROUP BY status
+        """)
+        project_info['by_status'] = {row['status']: row['count'] for row in task_cursor.fetchall()}
+
+        # By priority
+        task_cursor.execute("""
+            SELECT priority, COUNT(*) as count FROM tasks
+            WHERE deleted_at IS NULL
+            GROUP BY priority
+        """)
+        project_info['by_priority'] = {row['priority']: row['count'] for row in task_cursor.fetchall()}
+
+        # Blocked count
+        task_cursor.execute("""
+            SELECT COUNT(*) as count FROM tasks
+            WHERE status = 'blocked' AND deleted_at IS NULL
+        """)
+        project_info['blocked_count'] = task_cursor.fetchone()['count']
+
+        return project_info
+    finally:
+        task_conn.close()
+
+
+@mcp.tool()
 def get_task_tree(
     task_id: int,
     workspace_path: str | None = None,
@@ -147,6 +315,7 @@ def get_task_tree(
         Task object with 'subtasks' field containing nested subtasks
     """
     import sqlite3
+
     from .database import get_connection
 
     def fetch_with_subtasks(conn: sqlite3.Connection, tid: int) -> dict[str, Any] | None:
