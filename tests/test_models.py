@@ -76,17 +76,17 @@ class TestTaskHelperMethods:
 
     def test_get_depends_on_list(self) -> None:
         """Test parsing depends_on JSON to list."""
-        task = Task(id=1, title="Test", depends_on="[1, 2, 3]", status="todo")
+        task = Task.model_construct(id=1, title="Test", depends_on="[1, 2, 3]", status="todo")
         assert task.get_depends_on_list() == [1, 2, 3]
 
     def test_get_depends_on_list_empty(self) -> None:
         """Test parsing empty depends_on returns empty list."""
-        task = Task(id=1, title="Test", status="todo")
+        task = Task.model_construct(id=1, title="Test", status="todo")
         assert task.get_depends_on_list() == []
 
     def test_get_file_references_list(self) -> None:
         """Test parsing file_references JSON to list."""
-        task = Task(
+        task = Task.model_construct(
             id=1,
             title="Test",
             file_references='["file1.py", "file2.py"]',
@@ -96,7 +96,7 @@ class TestTaskHelperMethods:
 
     def test_get_file_references_list_empty(self) -> None:
         """Test parsing empty file_references returns empty list."""
-        task = Task(id=1, title="Test", status="todo")
+        task = Task.model_construct(id=1, title="Test", status="todo")
         assert task.get_file_references_list() == []
 
 
