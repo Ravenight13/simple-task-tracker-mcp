@@ -161,6 +161,225 @@ def create_task(
 
 
 @mcp.tool()
+def get_task(
+    task_id: int,
+    workspace_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Get a single task by ID.
+
+    Args:
+        task_id: Task ID to retrieve
+        workspace_path: Optional workspace path (auto-detected if not provided)
+
+    Returns:
+        Task object with all fields
+
+    Raises:
+        ValueError: If task not found or soft-deleted
+    """
+    from .database import get_connection
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Fetch task excluding soft-deleted
+        cursor.execute(
+            "SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(f"Task {task_id} not found or has been deleted")
+
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def update_task(
+    task_id: int,
+    workspace_path: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    status: str | None = None,
+    priority: str | None = None,
+    parent_task_id: int | None = None,
+    depends_on: list[int] | None = None,
+    tags: str | None = None,
+    blocker_reason: str | None = None,
+    file_references: list[str] | None = None,
+) -> dict[str, Any]:
+    """
+    Update an existing task with validation.
+
+    Args:
+        task_id: Task ID to update (required)
+        workspace_path: Optional workspace path (auto-detected if not provided)
+        title: Updated task title
+        description: Updated task description (max 10k chars)
+        status: Updated task status
+        priority: Updated priority level
+        parent_task_id: Updated parent task ID
+        depends_on: Updated list of task IDs this depends on
+        tags: Updated space-separated tags
+        blocker_reason: Updated blocker reason (required when status='blocked')
+        file_references: Updated list of file paths
+
+    Returns:
+        Updated task object with all fields
+
+    Raises:
+        ValueError: If task not found, validation fails, or invalid status transition
+    """
+    # Import at function level
+    import json
+    from datetime import datetime
+
+    from .database import get_connection
+    from .models import TaskUpdate, validate_status_transition
+    from .utils import validate_description_length
+
+    # Validate description length
+    if description is not None:
+        validate_description_length(description)
+
+    # Get database connection
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Fetch current task to validate transitions
+        cursor.execute(
+            "SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(f"Task {task_id} not found or has been deleted")
+
+        current_task = dict(row)
+
+        # Validate status transition if status is being changed
+        if (
+            status is not None
+            and status != current_task["status"]
+            and not validate_status_transition(current_task["status"], status)
+        ):
+            raise ValueError(
+                f"Invalid status transition from '{current_task['status']}' to '{status}'"
+            )
+
+        # Create TaskUpdate model to validate inputs
+        update_data = TaskUpdate(
+            title=title,
+            description=description,
+            status=status,
+            priority=priority,
+            parent_task_id=parent_task_id,
+            depends_on=json.dumps(depends_on) if depends_on is not None else None,
+            tags=tags,
+            blocker_reason=blocker_reason,
+            file_references=json.dumps(file_references) if file_references is not None else None,
+        )
+
+        # Check blocker_reason requirement
+        final_status = status if status is not None else current_task["status"]
+        final_blocker_reason = blocker_reason if blocker_reason is not None else current_task.get("blocker_reason")
+
+        if final_status == "blocked" and (not final_blocker_reason or not final_blocker_reason.strip()):
+            raise ValueError("blocker_reason is required when status is 'blocked'")
+
+        # Check dependencies before allowing status transitions
+        if status == "done":
+            depends_on_str = update_data.depends_on if update_data.depends_on is not None else current_task.get("depends_on")
+            if depends_on_str:
+                try:
+                    dep_ids: list[int] = json.loads(depends_on_str)
+                    # Check if all dependencies are done
+                    for dep_id in dep_ids:
+                        cursor.execute(
+                            "SELECT status FROM tasks WHERE id = ? AND deleted_at IS NULL",
+                            (dep_id,),
+                        )
+                        dep_row = cursor.fetchone()
+                        if dep_row and dep_row["status"] != "done":
+                            raise ValueError(
+                                f"Cannot mark task as done: dependency {dep_id} is not done (status: {dep_row['status']})"
+                            )
+                except json.JSONDecodeError:
+                    pass  # Invalid JSON, ignore dependency check
+
+        # Build UPDATE statement dynamically
+        update_fields = []
+        update_params: list[str | int | None] = []
+
+        if update_data.title is not None:
+            update_fields.append("title = ?")
+            update_params.append(update_data.title)
+
+        if update_data.description is not None:
+            update_fields.append("description = ?")
+            update_params.append(update_data.description)
+
+        if update_data.status is not None:
+            update_fields.append("status = ?")
+            update_params.append(update_data.status)
+
+        if update_data.priority is not None:
+            update_fields.append("priority = ?")
+            update_params.append(update_data.priority)
+
+        if update_data.parent_task_id is not None:
+            update_fields.append("parent_task_id = ?")
+            update_params.append(update_data.parent_task_id)
+
+        if update_data.depends_on is not None:
+            update_fields.append("depends_on = ?")
+            update_params.append(update_data.depends_on)
+
+        if update_data.tags is not None:
+            update_fields.append("tags = ?")
+            update_params.append(update_data.tags)
+
+        if update_data.blocker_reason is not None:
+            update_fields.append("blocker_reason = ?")
+            update_params.append(update_data.blocker_reason)
+
+        if update_data.file_references is not None:
+            update_fields.append("file_references = ?")
+            update_params.append(update_data.file_references)
+
+        # Always update updated_at
+        update_fields.append("updated_at = ?")
+        update_params.append(datetime.now().isoformat())
+
+        # Set completed_at when status changes to 'done'
+        if update_data.status == "done":
+            update_fields.append("completed_at = ?")
+            update_params.append(datetime.now().isoformat())
+
+        # Execute update if there are fields to update
+        if update_fields:
+            update_params.append(task_id)
+            query = f"UPDATE tasks SET {', '.join(update_fields)} WHERE id = ?"
+            cursor.execute(query, update_params)
+            conn.commit()
+
+        # Fetch updated task
+        cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = cursor.fetchone()
+
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
 def search_tasks(
     search_term: str,
     workspace_path: str | None = None,
