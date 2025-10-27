@@ -189,8 +189,10 @@ Main Chat:
 **4. Session Handoffs**:
 - Document session state for continuity
 - Format: Timestamped markdown files (YYYY-MM-DD-HHMM-description.md)
-- Location: Configurable (e.g., `.session-handoffs/`, `docs/sessions/`)
-- Content: Completed work, next priorities, blockers
+- Location: Configurable (e.g., `session-handoffs/`, `docs/sessions/`)
+- Content: Completed work, next priorities, blockers, subagent results
+- **Template**: Use `assets/TEMPLATE_SESSION_HANDOFF.md` as structure
+- **Automation** (optional): Projects may define slash commands (e.g., `/handoff`, `/checkpoint`) for automated creation
 
 **5. File Naming Conventions with Timestamps**:
 - Format: `YYYY-MM-DD-HHMM-description.md` (e.g., `2025-10-27-1500-api-design.md`)
@@ -476,9 +478,22 @@ Edit `assets/session-checklist.md` to customize session start template with proj
 ### Slash Commands (Project-Specific)
 
 Projects can define custom slash commands that integrate with this skill:
-- Session initialization command (e.g., `/start`, `/init`)
-- Checkpoint command (e.g., `/checkpoint`, `/save-session`)
-- Compliance validation (e.g., `/validate`, `/check`)
+- **Session initialization**: `/start`, `/init`, `/ready` - Automated workflow setup
+- **Session handoff**: `/handoff`, `/checkpoint`, `/save-session` - Automated handoff generation using TEMPLATE_SESSION_HANDOFF.md
+- **Compliance validation**: `/validate`, `/check`, `/comply` - Project standards verification
+
+**Example: Handoff Command**
+```
+User: "/handoff Feature implementation complete"
+
+What the command does:
+1. Copies assets/TEMPLATE_SESSION_HANDOFF.md to session-handoffs/
+2. Auto-fills context (branch, date, time, git status)
+3. Prompts for completed work and next priorities
+4. Commits the handoff file
+```
+
+**Note**: These are optional. Projects without slash commands can use templates manually.
 
 ### MCP Servers (Optional)
 
