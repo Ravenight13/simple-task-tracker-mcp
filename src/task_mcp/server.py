@@ -420,6 +420,94 @@ def delete_task(
         conn.close()
 
 
+@mcp.tool()
+def get_blocked_tasks(
+    workspace_path: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Get all tasks with status='blocked' and their blocker reasons.
+
+    Args:
+        workspace_path: Optional workspace path
+
+    Returns:
+        List of blocked tasks with blocker_reason field
+    """
+    from .database import get_connection
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT * FROM tasks
+            WHERE status = 'blocked' AND deleted_at IS NULL
+            ORDER BY created_at DESC
+        """)
+        rows = cursor.fetchall()
+
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def get_next_tasks(
+    workspace_path: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Get tasks ready to work on (status='todo', no unresolved dependencies).
+
+    Args:
+        workspace_path: Optional workspace path
+
+    Returns:
+        List of actionable tasks
+    """
+    import json
+
+    from .database import get_connection
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Get all todo tasks
+        cursor.execute("""
+            SELECT * FROM tasks
+            WHERE status = 'todo' AND deleted_at IS NULL
+            ORDER BY priority DESC, created_at ASC
+        """)
+        tasks = [dict(row) for row in cursor.fetchall()]
+
+        # Filter out tasks with unresolved dependencies
+        actionable = []
+        for task in tasks:
+            if not task["depends_on"]:
+                actionable.append(task)
+                continue
+
+            # Check if all dependencies are done
+            dep_ids = json.loads(task["depends_on"])
+            placeholders = ",".join("?" * len(dep_ids))
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) as count FROM tasks
+                WHERE id IN ({placeholders})
+                AND status = 'done'
+            """,
+                dep_ids,
+            )
+
+            done_count = cursor.fetchone()["count"]
+            if done_count == len(dep_ids):
+                actionable.append(task)
+
+        return actionable
+    finally:
+        conn.close()
+
+
 def main() -> None:
     """Main entry point for the Task MCP server."""
     mcp.run()
