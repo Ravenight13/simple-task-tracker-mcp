@@ -71,6 +71,7 @@ Apply universal-workflow-orchestrator at session start when:
 - Need consistent workflow setup with quality discipline
 - Want automated context detection and tool validation
 - Require best practice enforcement from session start
+- Orchestrating parallel subagents with file output requirements
 
 **Frequency**: Every development session
 
@@ -85,6 +86,7 @@ Apply universal-workflow-orchestrator at session start when:
 2. **Workflow Loading**: Apply task-specific workflow guidance
 3. **Health Validation**: Check git status, quality tools, documentation
 4. **Checklist Generation**: Provide structured session start template
+5. **Directory Setup**: Early creation of subagent output directories (if not exists)
 
 **Benefits**:
 - Consistent session start across all projects
@@ -137,6 +139,41 @@ Apply universal-workflow-orchestrator at session start when:
 - Example: 10 component reviews → 10 parallel agents = 10x speedup
 - Benefits: Speed, expertise, token efficiency, clarity
 
+**Subagent File Output Protocols (CRITICAL)**:
+- **MANDATORY**: All subagents MUST write their findings to files (not just report back verbally)
+- **File locations**:
+  - Research findings: `docs/subagent-reports/{agent-type}/{component}/YYYY-MM-DD-HHMM-description.md`
+  - Session handoffs: `session-handoffs/YYYY-MM-DD-HHMM-description.md`
+  - Analysis results: `docs/analysis/YYYY-MM-DD-HHMM-description.md`
+- **Micro-commit requirement**: Subagents must commit their files immediately upon completion
+- **Rationale**: Prevents work loss if main session crashes, provides audit trail, enables async review
+
+**Example workflow**:
+```
+User: "Analyze these 5 API endpoints using parallel subagents"
+
+Claude (Main Chat):
+  → Spawns 5 subagents (one per endpoint)
+
+Subagent 1:
+  → Analyzes endpoint-auth
+  → Writes findings to docs/subagent-reports/api-analysis/auth/2025-10-27-1400-auth-analysis.md
+  → Commits file: "docs(api): add auth endpoint analysis by subagent"
+  → Returns summary to main chat
+
+Subagent 2-5: (same pattern)
+
+Main Chat:
+  → Synthesizes 5 subagent reports
+  → Creates consolidated recommendation
+```
+
+**Benefits**:
+- Work preserved even if session crashes mid-analysis
+- Audit trail of all subagent work
+- Can be reviewed asynchronously
+- Enables handoff between sessions
+
 **2. Micro-Commit Discipline**:
 - Target: ≤30 minutes between commits
 - Frequency: Every 20-50 lines OR logical milestone
@@ -152,8 +189,10 @@ Apply universal-workflow-orchestrator at session start when:
 **4. Session Handoffs**:
 - Document session state for continuity
 - Format: Timestamped markdown files (YYYY-MM-DD-HHMM-description.md)
-- Location: Configurable (e.g., `.session-handoffs/`, `docs/sessions/`)
-- Content: Completed work, next priorities, blockers
+- Location: Configurable (e.g., `session-handoffs/`, `docs/sessions/`)
+- Content: Completed work, next priorities, blockers, subagent results
+- **Template**: Use `assets/TEMPLATE_SESSION_HANDOFF.md` as structure
+- **Automation** (optional): Projects may define slash commands (e.g., `/handoff`, `/checkpoint`) for automated creation
 
 **5. File Naming Conventions with Timestamps**:
 - Format: `YYYY-MM-DD-HHMM-description.md` (e.g., `2025-10-27-1500-api-design.md`)
@@ -439,9 +478,22 @@ Edit `assets/session-checklist.md` to customize session start template with proj
 ### Slash Commands (Project-Specific)
 
 Projects can define custom slash commands that integrate with this skill:
-- Session initialization command (e.g., `/start`, `/init`)
-- Checkpoint command (e.g., `/checkpoint`, `/save-session`)
-- Compliance validation (e.g., `/validate`, `/check`)
+- **Session initialization**: `/start`, `/init`, `/ready` - Automated workflow setup
+- **Session handoff**: `/handoff`, `/checkpoint`, `/save-session` - Automated handoff generation using TEMPLATE_SESSION_HANDOFF.md
+- **Compliance validation**: `/validate`, `/check`, `/comply` - Project standards verification
+
+**Example: Handoff Command**
+```
+User: "/handoff Feature implementation complete"
+
+What the command does:
+1. Copies assets/TEMPLATE_SESSION_HANDOFF.md to session-handoffs/
+2. Auto-fills context (branch, date, time, git status)
+3. Prompts for completed work and next priorities
+4. Commits the handoff file
+```
+
+**Note**: These are optional. Projects without slash commands can use templates manually.
 
 ### MCP Servers (Optional)
 
