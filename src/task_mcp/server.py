@@ -69,7 +69,7 @@ def list_tasks(
 @mcp.tool()
 def create_task(
     title: str,
-    ctx: Context,
+    ctx: Context | None = None,
     workspace_path: str | None = None,
     description: str | None = None,
     status: str = "todo",
@@ -85,7 +85,7 @@ def create_task(
 
     Args:
         title: Task title (required)
-        ctx: FastMCP context (auto-injected)
+        ctx: FastMCP context (auto-injected, optional for direct calls)
         workspace_path: Optional workspace path (auto-detected if not provided)
         description: Task description (max 10k chars)
         status: Task status (default: "todo")
@@ -107,8 +107,8 @@ def create_task(
     from .models import TaskCreate
     from .utils import validate_description_length
 
-    # Auto-capture session ID if created_by not provided
-    if created_by is None:
+    # Auto-capture session ID if created_by not provided and context available
+    if created_by is None and ctx is not None:
         created_by = ctx.session_id
 
     # Validate description length
