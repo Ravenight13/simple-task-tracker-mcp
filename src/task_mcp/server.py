@@ -770,6 +770,50 @@ def get_next_tasks(
         conn.close()
 
 
+@mcp.tool()
+def cleanup_deleted_tasks(
+    workspace_path: str | None = None,
+    days: int = 30,
+) -> dict[str, Any]:
+    """
+    Permanently delete tasks soft-deleted more than N days ago.
+
+    Args:
+        workspace_path: Optional workspace path
+        days: Number of days to retain (default: 30)
+
+    Returns:
+        Count of purged tasks
+    """
+    from datetime import datetime, timedelta
+
+    from .database import get_connection
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+        cursor.execute("""
+            DELETE FROM tasks
+            WHERE deleted_at IS NOT NULL
+            AND deleted_at < ?
+        """, (cutoff_date,))
+
+        purged_count = cursor.rowcount
+        conn.commit()
+
+        return {
+            "success": True,
+            "purged_count": purged_count,
+            "cutoff_days": days,
+            "cutoff_date": cutoff_date,
+        }
+    finally:
+        conn.close()
+
+
 def main() -> None:
     """Main entry point for the Task MCP server."""
     mcp.run()
