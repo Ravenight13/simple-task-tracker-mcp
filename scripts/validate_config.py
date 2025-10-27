@@ -3,9 +3,10 @@
 
 import json
 import os
-import sys
-from pathlib import Path
 import subprocess
+import sys
+from collections.abc import Callable
+from pathlib import Path
 
 
 def check_python_version() -> bool:
@@ -73,7 +74,7 @@ def check_config_file(config_path: Path) -> bool:
             return False
 
         server_config = config['mcpServers']['task-mcp']
-        print(f"✓ task-mcp server configured")
+        print("✓ task-mcp server configured")
         print(f"  Command: {server_config.get('command')}")
         print(f"  Args: {server_config.get('args')}")
 
@@ -136,7 +137,7 @@ def check_database_directory() -> bool:
 
     master_db = db_dir / "master.db"
     if master_db.exists():
-        print(f"  Master database exists")
+        print("  Master database exists")
 
     return True
 
@@ -166,7 +167,7 @@ def main() -> int:
     """Run all validation checks."""
     print("=== Task MCP Server Configuration Validation ===\n")
 
-    checks: list[tuple[str, callable]] = [
+    checks: list[tuple[str, Callable[[], bool]]] = [
         ("Python Version", check_python_version),
         ("uv Package Manager", check_uv_installed),
         ("task-mcp Package", check_task_mcp_installed),
