@@ -357,6 +357,69 @@ def get_task_tree(
         conn.close()
 
 
+@mcp.tool()
+def delete_task(
+    task_id: int,
+    workspace_path: str | None = None,
+    cascade: bool = False,
+) -> dict[str, Any]:
+    """
+    Soft delete a task by setting deleted_at timestamp.
+
+    Args:
+        task_id: Task ID to delete
+        workspace_path: Optional workspace path
+        cascade: If True, also soft-delete all subtasks
+
+    Returns:
+        Success confirmation with deleted task count
+    """
+    from datetime import datetime
+
+    from .database import get_connection
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Check if task exists
+        cursor.execute(
+            "SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,),
+        )
+        if not cursor.fetchone():
+            raise ValueError(f"Task {task_id} not found or already deleted")
+
+        now = datetime.now().isoformat()
+        deleted_count = 0
+
+        # Delete the task
+        cursor.execute(
+            "UPDATE tasks SET deleted_at = ? WHERE id = ?",
+            (now, task_id),
+        )
+        deleted_count += cursor.rowcount
+
+        # Cascade delete subtasks if requested
+        if cascade:
+            cursor.execute(
+                "UPDATE tasks SET deleted_at = ? WHERE parent_task_id = ? AND deleted_at IS NULL",
+                (now, task_id),
+            )
+            deleted_count += cursor.rowcount
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "task_id": task_id,
+            "deleted_count": deleted_count,
+            "cascade": cascade,
+        }
+    finally:
+        conn.close()
+
+
 def main() -> None:
     """Main entry point for the Task MCP server."""
     mcp.run()
