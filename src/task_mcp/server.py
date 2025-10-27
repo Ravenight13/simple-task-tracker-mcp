@@ -300,6 +300,49 @@ def get_project_info(
 
 
 @mcp.tool()
+def set_project_name(
+    workspace_path: str,
+    friendly_name: str,
+) -> dict[str, Any]:
+    """
+    Set friendly name for a project.
+
+    Args:
+        workspace_path: Project workspace path
+        friendly_name: Human-readable project name
+
+    Returns:
+        Success confirmation
+    """
+    from .master import get_master_connection, register_project
+
+    # Ensure project is registered
+    project_id = register_project(workspace_path)
+
+    # Update friendly name
+    conn = get_master_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE projects
+            SET friendly_name = ?
+            WHERE id = ?
+        """, (friendly_name, project_id))
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "project_id": project_id,
+            "workspace_path": workspace_path,
+            "friendly_name": friendly_name,
+        }
+    finally:
+        conn.close()
+
+
+@mcp.tool()
 def get_task_tree(
     task_id: int,
     workspace_path: str | None = None,
