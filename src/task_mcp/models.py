@@ -253,8 +253,10 @@ class Task(BaseModel):
 
     @field_validator('status')
     @classmethod
-    def validate_status(cls, v: str) -> str:
+    def validate_status(cls, v: Optional[str]) -> Optional[str]:
         """Validate status is one of the allowed values."""
+        if v is None:
+            return None
         if v not in VALID_STATUSES:
             raise ValueError(
                 f"Status must be one of {VALID_STATUSES}, got '{v}'"
@@ -263,8 +265,10 @@ class Task(BaseModel):
 
     @field_validator('priority')
     @classmethod
-    def validate_priority(cls, v: str) -> str:
+    def validate_priority(cls, v: Optional[str]) -> Optional[str]:
         """Validate priority is one of the allowed values."""
+        if v is None:
+            return None
         if v not in VALID_PRIORITIES:
             raise ValueError(
                 f"Priority must be one of {VALID_PRIORITIES}, got '{v}'"
