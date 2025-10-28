@@ -128,25 +128,35 @@ def init_schema(conn: sqlite3.Connection) -> None:
             created_by TEXT,
             created_at TIMESTAMP NOT NULL,
             updated_at TIMESTAMP NOT NULL,
-            deleted_at TIMESTAMP,
-            UNIQUE(entity_type, identifier)
+            deleted_at TIMESTAMP
+            -- NOTE: UNIQUE constraint removed - incompatible with soft deletes
+            -- Uniqueness enforced by partial index idx_entity_unique instead
         )
     """)
 
-    # === NEW: Create indexes for entities ===
+    # === NEW: Create partial UNIQUE index (CRITICAL for soft delete compatibility) ===
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_entity_unique
+        ON entities(entity_type, identifier)
+        WHERE deleted_at IS NULL AND identifier IS NOT NULL
+    """)
+    # This partial index enforces uniqueness ONLY for active (non-deleted) entities.
+    # Allows re-creating entities with same identifier after soft delete.
+
+    # === NEW: Create performance indexes for entities ===
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_entity_type
         ON entities(entity_type)
     """)
 
     conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_entity_identifier
-        ON entities(identifier)
+        CREATE INDEX IF NOT EXISTS idx_entity_deleted
+        ON entities(deleted_at)
     """)
 
     conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_entity_deleted
-        ON entities(deleted_at)
+        CREATE INDEX IF NOT EXISTS idx_entity_tags
+        ON entities(tags)
     """)
 
     # === NEW: Create task_entity_links junction table ===
@@ -187,10 +197,10 @@ def init_schema(conn: sqlite3.Connection) -> None:
 **Schema Design Notes:**
 
 1. **entity_type CHECK Constraint**: Enforces only `'file'` and `'other'` types
-2. **UNIQUE(entity_type, identifier)**: Prevents duplicate entities (e.g., same file path)
-3. **metadata TEXT**: Generic JSON blob (no typed validation in MVP)
-4. **ON DELETE CASCADE**: Links automatically deleted when task/entity deleted
-5. **UNIQUE(task_id, entity_id)**: Prevents duplicate links
+2. **Partial UNIQUE Index**: `idx_entity_unique` enforces uniqueness ONLY for active entities (deleted_at IS NULL), allowing re-creation after soft delete
+3. **metadata TEXT**: Generic JSON blob (application-level validation recommended)
+4. **ON DELETE CASCADE**: Links automatically deleted when task/entity deleted (validated correct for SQLite)
+5. **UNIQUE(task_id, entity_id)**: Prevents duplicate links (safe because both columns NOT NULL)
 
 ### 1.2 Schema Field Specifications
 
@@ -223,19 +233,26 @@ def init_schema(conn: sqlite3.Connection) -> None:
 
 ### 1.3 Index Strategy
 
-**Purpose:** Enable fast bidirectional queries and filtering
+**Purpose:** Enable fast bidirectional queries, uniqueness enforcement, and filtering
 
 ```sql
--- Entity Indexes (3)
+-- Entity Partial UNIQUE Index (CRITICAL - soft delete compatibility)
+CREATE UNIQUE INDEX idx_entity_unique
+ON entities(entity_type, identifier)
+WHERE deleted_at IS NULL AND identifier IS NOT NULL;
+
+-- Entity Performance Indexes (3)
 CREATE INDEX idx_entity_type ON entities(entity_type);        -- Filter by type
-CREATE INDEX idx_entity_identifier ON entities(identifier);   -- Lookup by identifier
 CREATE INDEX idx_entity_deleted ON entities(deleted_at);      -- Exclude soft-deleted
+CREATE INDEX idx_entity_tags ON entities(tags);               -- Search by tags
 
 -- Link Indexes (3)
 CREATE INDEX idx_link_task ON task_entity_links(task_id);     -- Get entities for task
 CREATE INDEX idx_link_entity ON task_entity_links(entity_id); -- Get tasks for entity
 CREATE INDEX idx_link_deleted ON task_entity_links(deleted_at); -- Exclude soft-deleted
 ```
+
+**Note:** idx_entity_identifier removed - redundant with idx_entity_unique partial index
 
 **Query Performance:**
 
