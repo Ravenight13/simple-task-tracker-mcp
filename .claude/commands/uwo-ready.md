@@ -72,37 +72,17 @@ CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "none")
 # Get working directory
 WORKING_DIR=$(pwd)
 
-# Detect context from branch name
-case "$CURRENT_BRANCH" in
-    feat*)
-        CONTEXT_HINT="DEVELOPMENT"
-        ;;
-    test*)
-        CONTEXT_HINT="TESTING"
-        ;;
-    docs*)
-        CONTEXT_HINT="DOCUMENTATION"
-        ;;
-    fix*)
-        CONTEXT_HINT="BUGFIX"
-        ;;
-    *)
-        CONTEXT_HINT="GENERAL"
-        ;;
-esac
+# Detect context from branch name (single-line safe)
+CONTEXT_HINT="GENERAL"
+if echo "$CURRENT_BRANCH" | grep -q "^feat"; then CONTEXT_HINT="DEVELOPMENT"; fi
+if echo "$CURRENT_BRANCH" | grep -q "^test"; then CONTEXT_HINT="TESTING"; fi
+if echo "$CURRENT_BRANCH" | grep -q "^docs"; then CONTEXT_HINT="DOCUMENTATION"; fi
+if echo "$CURRENT_BRANCH" | grep -q "^fix"; then CONTEXT_HINT="BUGFIX"; fi
 
-# Detect from directory (use case for pattern matching)
-case "$WORKING_DIR" in
-    */test/*|*/tests/*)
-        CONTEXT_HINT="TESTING"
-        ;;
-    */docs/*)
-        CONTEXT_HINT="DOCUMENTATION"
-        ;;
-    */src/*|*/lib/*|*/app/*)
-        CONTEXT_HINT="DEVELOPMENT"
-        ;;
-esac
+# Override with directory detection if applicable (single-line safe)
+if echo "$WORKING_DIR" | grep -q "/tests\?/"; then CONTEXT_HINT="TESTING"; fi
+if echo "$WORKING_DIR" | grep -q "/docs/"; then CONTEXT_HINT="DOCUMENTATION"; fi
+if echo "$WORKING_DIR" | grep -q -E "/src/|/lib/|/app/"; then CONTEXT_HINT="DEVELOPMENT"; fi
 
 echo "📍 Detected Context: $CONTEXT_HINT"
 echo "🌿 Branch: $CURRENT_BRANCH"
