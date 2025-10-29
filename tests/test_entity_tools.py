@@ -922,3 +922,246 @@ class TestGetTaskEntities:
         assert entities[0]["id"] == e3["id"]
         assert entities[1]["id"] == e2["id"]
         assert entities[2]["id"] == e1["id"]
+
+
+class TestVendorWorkflow:
+    """End-to-end test of vendor use case."""
+
+    def test_vendor_complete_lifecycle(self, test_workspace: str) -> None:
+        """
+        Test complete vendor workflow:
+        1. Create vendor entity (other type)
+        2. Create task for vendor integration
+        3. Link vendor to task
+        4. List all vendors
+        5. Get vendors for task
+        6. Update vendor metadata (phase change)
+        7. Delete vendor (cascade to links)
+        8. Verify vendor cannot be retrieved
+        """
+        # Step 1: Create vendor entity (other type)
+        vendor = create_entity(
+            entity_type="other",
+            name="ABC Insurance Vendor",
+            identifier="ABC-INS",
+            description="Commission processing vendor for ABC Insurance",
+            metadata={"vendor_code": "ABC", "phase": "testing", "formats": ["xlsx", "pdf"]},
+            tags="vendor insurance",
+            workspace_path=test_workspace,
+        )
+
+        assert vendor["id"] is not None
+        assert vendor["entity_type"] == "other"
+        assert vendor["name"] == "ABC Insurance Vendor"
+        assert vendor["identifier"] == "ABC-INS"
+        assert vendor["metadata"] == '{"vendor_code": "ABC", "phase": "testing", "formats": ["xlsx", "pdf"]}'
+        assert vendor["tags"] == "vendor insurance"
+
+        # Step 2: Create task for vendor integration
+        task = create_task(
+            title="Integrate ABC Insurance vendor data pipeline",
+            description="Implement ETL pipeline for ABC Insurance commission files",
+            status="todo",
+            priority="high",
+            tags="vendor integration",
+            workspace_path=test_workspace,
+        )
+
+        assert task["id"] is not None
+        assert task["title"] == "Integrate ABC Insurance vendor data pipeline"
+
+        # Step 3: Link vendor to task
+        link = link_entity_to_task(task["id"], vendor["id"], test_workspace)
+
+        assert link["link_id"] is not None
+        assert link["task_id"] == task["id"]
+        assert link["entity_id"] == vendor["id"]
+
+        # Step 4: List all vendors (filter by type and tags)
+        vendors = list_entities(entity_type="other", tags="vendor", workspace_path=test_workspace)
+
+        assert len(vendors) == 1
+        assert vendors[0]["id"] == vendor["id"]
+        assert vendors[0]["name"] == "ABC Insurance Vendor"
+
+        # Step 5: Get vendors for task
+        task_entities = get_task_entities(task["id"], test_workspace)
+
+        assert len(task_entities) == 1
+        assert task_entities[0]["id"] == vendor["id"]
+        assert task_entities[0]["entity_type"] == "other"
+        assert task_entities[0]["name"] == "ABC Insurance Vendor"
+        assert task_entities[0]["link_created_at"] is not None
+
+        # Step 6: Update vendor metadata (phase change: testing → active)
+        updated_vendor = update_entity(
+            vendor["id"],
+            metadata={"vendor_code": "ABC", "phase": "active", "formats": ["xlsx", "pdf"]},
+            workspace_path=test_workspace,
+        )
+
+        assert updated_vendor["metadata"] == '{"vendor_code": "ABC", "phase": "active", "formats": ["xlsx", "pdf"]}'
+        assert updated_vendor["updated_at"] != vendor["updated_at"]
+
+        # Verify phase change persisted
+        retrieved_vendor = get_entity(vendor["id"], test_workspace)
+        assert '{"vendor_code": "ABC", "phase": "active"' in retrieved_vendor["metadata"]
+
+        # Step 7: Delete vendor (cascade to links)
+        delete_result = delete_entity(vendor["id"], test_workspace)
+
+        assert delete_result["success"] is True
+        assert delete_result["entity_id"] == vendor["id"]
+        assert delete_result["deleted_links"] == 1  # Should cascade delete the task link
+
+        # Step 8: Verify vendor cannot be retrieved
+        with pytest.raises(ValueError, match="Entity .* not found or has been deleted"):
+            get_entity(vendor["id"], test_workspace)
+
+        # Verify vendor not in list
+        vendors_after_delete = list_entities(entity_type="other", workspace_path=test_workspace)
+        assert len(vendors_after_delete) == 0
+
+        # Verify task no longer has vendor linked
+        task_entities_after_delete = get_task_entities(task["id"], test_workspace)
+        assert len(task_entities_after_delete) == 0
+
+
+class TestFileEntityWorkflow:
+    """End-to-end test of file tracking use case."""
+
+    def test_file_entity_complete_lifecycle(self, test_workspace: str) -> None:
+        """
+        Test complete file entity workflow:
+        1. Create file entity with file path identifier
+        2. Create task for refactoring
+        3. Link file to task
+        4. List all file entities
+        5. Get files for task
+        6. Update file metadata (line count change)
+        7. Delete file (task completed)
+        8. Verify soft delete allows re-creation
+        """
+        # Step 1: Create file entity with file path identifier
+        file_entity = create_entity(
+            entity_type="file",
+            name="Auth API Controller",
+            identifier="/src/api/auth.py",
+            description="Authentication endpoint handler",
+            metadata={"language": "python", "line_count": 250, "complexity": "medium"},
+            tags="backend api authentication",
+            workspace_path=test_workspace,
+        )
+
+        assert file_entity["id"] is not None
+        assert file_entity["entity_type"] == "file"
+        assert file_entity["name"] == "Auth API Controller"
+        assert file_entity["identifier"] == "/src/api/auth.py"
+        assert file_entity["description"] == "Authentication endpoint handler"
+        assert file_entity["metadata"] == '{"language": "python", "line_count": 250, "complexity": "medium"}'
+        assert file_entity["tags"] == "backend api authentication"
+        assert file_entity["deleted_at"] is None
+
+        # Step 2: Create task for refactoring
+        refactor_task = create_task(
+            title="Refactor authentication endpoint to use JWT tokens",
+            description="Update /src/api/auth.py to implement JWT-based authentication",
+            status="in_progress",
+            priority="high",
+            workspace_path=test_workspace,
+        )
+
+        assert refactor_task["id"] is not None
+        assert refactor_task["status"] == "in_progress"
+
+        # Step 3: Link file to task
+        link = link_entity_to_task(
+            refactor_task["id"],
+            file_entity["id"],
+            test_workspace,
+        )
+
+        assert link["link_id"] is not None
+        assert link["task_id"] == refactor_task["id"]
+        assert link["entity_id"] == file_entity["id"]
+        assert link["created_at"] is not None
+
+        # Step 4: List all file entities
+        all_files = list_entities(
+            entity_type="file",
+            workspace_path=test_workspace,
+        )
+
+        assert len(all_files) == 1
+        assert all_files[0]["id"] == file_entity["id"]
+        assert all_files[0]["identifier"] == "/src/api/auth.py"
+
+        # Step 5: Get files for task
+        task_files = get_task_entities(
+            refactor_task["id"],
+            test_workspace,
+        )
+
+        assert len(task_files) == 1
+        assert task_files[0]["id"] == file_entity["id"]
+        assert task_files[0]["name"] == "Auth API Controller"
+        assert task_files[0]["identifier"] == "/src/api/auth.py"
+        assert task_files[0]["link_created_at"] is not None
+        assert task_files[0]["link_created_by"] is None  # Direct call, no context
+
+        # Step 6: Update file metadata (line count change after refactoring)
+        updated_file = update_entity(
+            file_entity["id"],
+            metadata={"language": "python", "line_count": 180, "complexity": "low"},
+            workspace_path=test_workspace,
+        )
+
+        assert updated_file["id"] == file_entity["id"]
+        assert updated_file["metadata"] == '{"language": "python", "line_count": 180, "complexity": "low"}'
+        assert updated_file["updated_at"] != file_entity["updated_at"]
+
+        # Step 7: Delete file (task completed, file no longer tracked)
+        delete_result = delete_entity(file_entity["id"], test_workspace)
+
+        assert delete_result["success"] is True
+        assert delete_result["entity_id"] == file_entity["id"]
+        assert delete_result["deleted_links"] == 1  # Link to refactor_task was deleted
+
+        # Verify file no longer appears in lists
+        all_files_after_delete = list_entities(
+            entity_type="file",
+            workspace_path=test_workspace,
+        )
+        assert len(all_files_after_delete) == 0
+
+        # Verify file no longer appears in task entities
+        task_files_after_delete = get_task_entities(
+            refactor_task["id"],
+            test_workspace,
+        )
+        assert len(task_files_after_delete) == 0
+
+        # Step 8: Verify soft delete allows re-creation with same identifier
+        recreated_file = create_entity(
+            entity_type="file",
+            name="Auth API Controller (v2)",
+            identifier="/src/api/auth.py",  # Same identifier as deleted entity
+            description="Refactored authentication using JWT",
+            metadata={"language": "python", "line_count": 180, "complexity": "low"},
+            tags="backend api authentication jwt",
+            workspace_path=test_workspace,
+        )
+
+        assert recreated_file["id"] != file_entity["id"]  # New entity has different ID
+        assert recreated_file["identifier"] == "/src/api/auth.py"  # Same identifier allowed
+        assert recreated_file["name"] == "Auth API Controller (v2)"
+        assert recreated_file["tags"] == "backend api authentication jwt"
+        assert recreated_file["deleted_at"] is None
+
+        # Verify recreated file appears in lists
+        all_files_final = list_entities(
+            entity_type="file",
+            workspace_path=test_workspace,
+        )
+        assert len(all_files_final) == 1
+        assert all_files_final[0]["id"] == recreated_file["id"]
