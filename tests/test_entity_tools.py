@@ -1165,3 +1165,222 @@ class TestFileEntityWorkflow:
         )
         assert len(all_files_final) == 1
         assert all_files_final[0]["id"] == recreated_file["id"]
+
+
+class TestDuplicateDetectionValidation:
+    """Test duplicate detection logic for entity identifiers."""
+
+    def test_create_entity_duplicate_identifier_different_type_allowed(self, test_workspace: str) -> None:
+        """Different entity types can share identifier (file vs other)."""
+        # Create file entity with identifier
+        file_entity = create_entity(
+            entity_type="file",
+            name="File Entity",
+            identifier="shared-identifier",
+            workspace_path=test_workspace,
+        )
+
+        # Create other entity with same identifier - should succeed
+        other_entity = create_entity(
+            entity_type="other",
+            name="Other Entity",
+            identifier="shared-identifier",
+            workspace_path=test_workspace,
+        )
+
+        # Both should exist with same identifier but different types
+        assert file_entity["identifier"] == "shared-identifier"
+        assert file_entity["entity_type"] == "file"
+        assert other_entity["identifier"] == "shared-identifier"
+        assert other_entity["entity_type"] == "other"
+        assert file_entity["id"] != other_entity["id"]
+
+    def test_create_entity_duplicate_identifier_same_type_error(self, test_workspace: str) -> None:
+        """Same entity type cannot share identifier."""
+        # Create first file entity
+        create_entity(
+            entity_type="file",
+            name="First File",
+            identifier="/path/to/file.py",
+            workspace_path=test_workspace,
+        )
+
+        # Attempt to create second file entity with same identifier
+        with pytest.raises(ValueError, match="Entity already exists"):
+            create_entity(
+                entity_type="file",
+                name="Second File",
+                identifier="/path/to/file.py",
+                workspace_path=test_workspace,
+            )
+
+    def test_create_entity_null_identifier_allows_duplicates(self, test_workspace: str) -> None:
+        """NULL identifiers do not conflict (multiple vendors without IDs)."""
+        # Create first entity without identifier
+        vendor1 = create_entity(
+            entity_type="other",
+            name="Vendor A",
+            identifier=None,
+            description="Vendor without identifier",
+            workspace_path=test_workspace,
+        )
+
+        # Create second entity without identifier - should succeed
+        vendor2 = create_entity(
+            entity_type="other",
+            name="Vendor B",
+            identifier=None,
+            description="Another vendor without identifier",
+            workspace_path=test_workspace,
+        )
+
+        # Both should exist with NULL identifiers
+        assert vendor1["identifier"] is None
+        assert vendor2["identifier"] is None
+        assert vendor1["id"] != vendor2["id"]
+        assert vendor1["name"] == "Vendor A"
+        assert vendor2["name"] == "Vendor B"
+
+
+class TestMetadataValidation:
+    """Test metadata handling and JSON conversion."""
+
+    def test_create_entity_metadata_dict_converted_to_json(self, test_workspace: str) -> None:
+        """Dict metadata should be converted to JSON string."""
+        import json
+
+        # Create entity with dict metadata
+        entity = create_entity(
+            entity_type="other",
+            name="Vendor",
+            metadata={"vendor_code": "ABC", "phase": "active"},
+            workspace_path=test_workspace,
+        )
+
+        # Metadata should be stored as JSON string
+        assert isinstance(entity["metadata"], str)
+
+        # Should be parseable back to dict
+        metadata_dict = json.loads(entity["metadata"])
+        assert metadata_dict["vendor_code"] == "ABC"
+        assert metadata_dict["phase"] == "active"
+
+    def test_update_entity_metadata_preserves_structure(self, test_workspace: str) -> None:
+        """Updating metadata should preserve JSON structure."""
+        import json
+
+        # Create entity with initial metadata
+        entity = create_entity(
+            entity_type="other",
+            name="Vendor",
+            metadata={"phase": "testing"},
+            workspace_path=test_workspace,
+        )
+
+        # Update metadata with new structure
+        updated = update_entity(
+            entity["id"],
+            metadata={"phase": "active", "brands": ["Brand A", "Brand B"]},
+            workspace_path=test_workspace,
+        )
+
+        # Metadata should be updated and parseable
+        assert isinstance(updated["metadata"], str)
+        metadata_dict = json.loads(updated["metadata"])
+        assert metadata_dict["phase"] == "active"
+        assert metadata_dict["brands"] == ["Brand A", "Brand B"]
+
+        # Should have replaced old metadata entirely
+        assert "brands" in metadata_dict
+
+
+class TestBidirectionalQueries:
+    """Test entity ↔ task query performance and correctness."""
+
+    def test_get_entities_for_task(self, test_workspace: str) -> None:
+        """Forward query: task → entities."""
+        # Create task
+        task = create_task(title="Test Task", workspace_path=test_workspace)
+
+        # Create multiple entities
+        entity1 = create_entity(
+            entity_type="file",
+            name="File 1",
+            identifier="/file1.py",
+            workspace_path=test_workspace,
+        )
+        entity2 = create_entity(
+            entity_type="file",
+            name="File 2",
+            identifier="/file2.py",
+            workspace_path=test_workspace,
+        )
+
+        # Link entities to task
+        link_entity_to_task(task["id"], entity1["id"], test_workspace)
+        link_entity_to_task(task["id"], entity2["id"], test_workspace)
+
+        # Query entities for task
+        entities = get_task_entities(task["id"], test_workspace)
+
+        # Verify correct entities returned
+        assert len(entities) == 2
+        entity_ids = {e["id"] for e in entities}
+        assert entity_ids == {entity1["id"], entity2["id"]}
+
+        # Verify all entity fields present
+        for entity in entities:
+            assert "id" in entity
+            assert "entity_type" in entity
+            assert "name" in entity
+            assert "identifier" in entity
+            assert "link_created_at" in entity
+            assert "link_created_by" in entity
+
+    def test_get_tasks_for_entity_manual(self, test_workspace: str) -> None:
+        """Reverse query: entity → tasks (manual SQL for now)."""
+        from task_mcp.database import get_connection
+
+        # Create entity
+        entity = create_entity(
+            entity_type="file",
+            name="Shared Entity",
+            identifier="/shared.py",
+            workspace_path=test_workspace,
+        )
+
+        # Create multiple tasks
+        task1 = create_task(title="Task 1", workspace_path=test_workspace)
+        task2 = create_task(title="Task 2", workspace_path=test_workspace)
+
+        # Link entity to tasks
+        link_entity_to_task(task1["id"], entity["id"], test_workspace)
+        link_entity_to_task(task2["id"], entity["id"], test_workspace)
+
+        # Manual SQL query: entity → tasks (until get_entity_tasks() implemented)
+        conn = get_connection(test_workspace)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT t.id, t.title, l.created_at as link_created_at
+            FROM tasks t
+            JOIN task_entity_links l ON t.id = l.task_id
+            WHERE l.entity_id = ? AND l.deleted_at IS NULL AND t.deleted_at IS NULL
+            ORDER BY l.created_at DESC
+            """,
+            (entity["id"],),
+        )
+        tasks = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+
+        # Verify correct tasks returned
+        assert len(tasks) == 2
+        task_ids = {t["id"] for t in tasks}
+        assert task_ids == {task1["id"], task2["id"]}
+
+        # Verify task fields present
+        for task in tasks:
+            assert "id" in task
+            assert "title" in task
+            assert "link_created_at" in task
