@@ -1030,6 +1030,100 @@ def link_entity_to_task(
         conn.close()
 
 
+@mcp.tool()
+def get_task_entities(
+    task_id: int,
+    workspace_path: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Get all entities linked to a task.
+
+    Returns entity details with link metadata.
+
+    Args:
+        task_id: Task ID to query
+        workspace_path: Optional workspace path (auto-detected)
+
+    Returns:
+        List of dicts with entity + link fields:
+        - All entity fields (id, entity_type, name, identifier, etc.)
+        - link_created_at: Timestamp when link was created
+        - link_created_by: Conversation ID that created link
+
+    Raises:
+        ValueError: If task not found or deleted
+
+    Examples:
+        # Get all entities linked to task 42
+        entities = get_task_entities(task_id=42)
+
+        # Returns:
+        [
+            {
+                "id": 7,
+                "entity_type": "file",
+                "name": "Login Controller",
+                "identifier": "/src/auth/login.py",
+                "description": "User authentication controller",
+                "metadata": '{"language": "python", "line_count": 250}',
+                "tags": "auth backend",
+                "created_by": "conv-123",
+                "created_at": "2025-10-29T10:00:00",
+                "updated_at": "2025-10-29T10:00:00",
+                "deleted_at": None,
+                "link_created_at": "2025-10-29T10:05:00",
+                "link_created_by": "conv-123"
+            }
+        ]
+    """
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Validate task exists and is not deleted
+        cursor.execute(
+            "SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,)
+        )
+        task = cursor.fetchone()
+
+        if not task:
+            raise ValueError(
+                f"Task {task_id} not found or has been deleted"
+            )
+
+        # Query entities with JOIN to get link metadata
+        # Returns all entity fields plus link creation info
+        cursor.execute("""
+            SELECT
+                e.*,
+                l.created_at AS link_created_at,
+                l.created_by AS link_created_by
+            FROM entities e
+            JOIN task_entity_links l ON e.id = l.entity_id
+            WHERE l.task_id = ?
+              AND e.deleted_at IS NULL
+              AND l.deleted_at IS NULL
+            ORDER BY l.created_at DESC
+        """, (task_id,))
+
+        entities = cursor.fetchall()
+
+        # Convert Row objects to dicts
+        return [dict(entity) for entity in entities]
+
+    finally:
+        conn.close()
+
+
 def main() -> None:
     """Main entry point for the Task MCP server."""
     mcp.run()
