@@ -74,6 +74,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     - created_by TEXT
     - created_at TIMESTAMP NOT NULL
     - updated_at TIMESTAMP NOT NULL
+    - updated_by TEXT (audit trail)
     - deleted_at TIMESTAMP
 
     Task Entity Links Table (v0.3.0):
@@ -177,6 +178,18 @@ def init_schema(conn: sqlite3.Connection) -> None:
         ON entities(entity_type, identifier)
         WHERE deleted_at IS NULL AND identifier IS NOT NULL
     """)
+
+    # Migration: Add updated_by column if it doesn't exist (v0.3.1)
+    # Check if column exists
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(entities)")
+    columns = {row[1] for row in cursor.fetchall()}
+
+    if 'updated_by' not in columns:
+        conn.execute("""
+            ALTER TABLE entities ADD COLUMN updated_by TEXT
+        """)
+        conn.commit()
 
     # Create performance indexes for entities
     conn.execute("""

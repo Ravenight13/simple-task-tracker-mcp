@@ -1249,8 +1249,130 @@ def get_task_entities(
 
 
 @mcp.tool()
+def get_entity_tasks(
+    entity_id: int,
+    workspace_path: str | None = None,
+    status: str | None = None,
+    priority: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Get all tasks linked to an entity (reverse lookup).
+
+    Returns task details with link metadata.
+
+    Args:
+        entity_id: Entity ID to query
+        workspace_path: Optional workspace path (auto-detected)
+        status: Optional task status filter (todo, in_progress, done, etc.)
+        priority: Optional task priority filter (low, medium, high)
+
+    Returns:
+        List of dicts with task + link fields:
+        - All task fields (id, title, description, status, etc.)
+        - link_created_at: Timestamp when link was created
+        - link_created_by: Conversation ID that created link
+
+    Raises:
+        ValueError: If entity not found or deleted
+
+    Examples:
+        # Get all tasks linked to entity 42
+        tasks = get_entity_tasks(entity_id=42)
+
+        # Get only high-priority tasks for entity
+        tasks = get_entity_tasks(entity_id=42, priority="high")
+
+        # Get only in-progress tasks for entity
+        tasks = get_entity_tasks(entity_id=42, status="in_progress")
+
+        # Returns:
+        [
+            {
+                "id": 15,
+                "title": "Integrate ABC Insurance vendor data pipeline",
+                "description": "Implement ETL pipeline for ABC Insurance",
+                "status": "in_progress",
+                "priority": "high",
+                "parent_task_id": None,
+                "depends_on": None,
+                "tags": "vendor integration",
+                "blocker_reason": None,
+                "file_references": None,
+                "created_by": "conv-123",
+                "created_at": "2025-10-29T10:00:00",
+                "updated_at": "2025-10-29T11:00:00",
+                "completed_at": None,
+                "deleted_at": None,
+                "link_created_at": "2025-10-29T10:05:00",
+                "link_created_by": "conv-123"
+            }
+        ]
+    """
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Validate entity exists and is not deleted
+        cursor.execute(
+            "SELECT id FROM entities WHERE id = ? AND deleted_at IS NULL",
+            (entity_id,)
+        )
+        entity = cursor.fetchone()
+
+        if not entity:
+            raise ValueError(
+                f"Entity {entity_id} not found or has been deleted"
+            )
+
+        # Build query with optional filters
+        query = """
+            SELECT
+                t.*,
+                l.created_at AS link_created_at,
+                l.created_by AS link_created_by
+            FROM tasks t
+            JOIN task_entity_links l ON t.id = l.task_id
+            WHERE l.entity_id = ?
+              AND t.deleted_at IS NULL
+              AND l.deleted_at IS NULL
+        """
+        params: list[int | str] = [entity_id]
+
+        # Add optional status filter
+        if status is not None:
+            query += " AND t.status = ?"
+            params.append(status)
+
+        # Add optional priority filter
+        if priority is not None:
+            query += " AND t.priority = ?"
+            params.append(priority)
+
+        # Order by link creation (most recent first)
+        query += " ORDER BY l.created_at DESC"
+
+        cursor.execute(query, params)
+        tasks = cursor.fetchall()
+
+        # Convert Row objects to dicts
+        return [dict(task) for task in tasks]
+
+    finally:
+        conn.close()
+
+
+@mcp.tool()
 def update_entity(
     entity_id: int,
+    ctx: Context | None = None,
     workspace_path: str | None = None,
     name: str | None = None,
     identifier: str | None = None,
@@ -1266,6 +1388,7 @@ def update_entity(
 
     Args:
         entity_id: Entity ID to update (required)
+        ctx: FastMCP context (auto-injected, optional for direct calls)
         workspace_path: Optional workspace path (auto-detected if not provided)
         name: Updated name (1-500 chars)
         identifier: Updated identifier (max 1000 chars, must be unique per type)
@@ -1302,6 +1425,9 @@ def update_entity(
     workspace = resolve_workspace(workspace_path)
     register_project(workspace)
 
+    # Auto-capture session ID for updated_by
+    updated_by = ctx.session_id if ctx else None
+
     # Validate description length if provided
     if description is not None:
         validate_description_length(description)
@@ -1323,6 +1449,7 @@ def update_entity(
         description=description,
         metadata=metadata_json,
         tags=tags,
+        updated_by=updated_by,
     )
 
     # Get database connection
@@ -1386,6 +1513,10 @@ def update_entity(
         # Always update updated_at timestamp
         update_fields.append("updated_at = ?")
         update_params.append(datetime.now().isoformat())
+
+        # Always update updated_by (audit trail)
+        update_fields.append("updated_by = ?")
+        update_params.append(updated_by)
 
         # Execute update if there are fields to update
         if update_fields:
@@ -1537,6 +1668,62 @@ def list_entities(
                     tag_conditions.append("tags LIKE ?")
                     params.append(f"%{tag}%")
                 query += f" AND ({' OR '.join(tag_conditions)})"
+
+        query += " ORDER BY created_at DESC"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def search_entities(
+    search_term: str,
+    workspace_path: str | None = None,
+    entity_type: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Search entities by partial match on name or identifier.
+
+    Args:
+        search_term: Text to search for (case-insensitive)
+        workspace_path: Optional workspace path
+        entity_type: Optional filter by entity_type
+
+    Returns:
+        List of matching entity dicts, ordered by created_at DESC
+    """
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Build query with search pattern and optional entity_type filter
+        query = """
+            SELECT * FROM entities
+            WHERE deleted_at IS NULL
+            AND (name LIKE ? OR identifier LIKE ?)
+        """
+        params: list[str] = []
+
+        search_pattern = f"%{search_term}%"
+        params.append(search_pattern)
+        params.append(search_pattern)
+
+        # Add optional entity_type filter
+        if entity_type:
+            query += " AND entity_type = ?"
+            params.append(entity_type)
 
         query += " ORDER BY created_at DESC"
 
