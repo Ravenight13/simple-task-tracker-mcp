@@ -889,6 +889,147 @@ def cleanup_deleted_tasks(
         conn.close()
 
 
+# ============================================================================
+# ENTITY SYSTEM TOOLS (v0.3.0)
+# ============================================================================
+
+
+@mcp.tool()
+def get_entity(
+    entity_id: int,
+    workspace_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Get a single entity by ID.
+
+    Args:
+        entity_id: Entity ID to retrieve
+        workspace_path: Optional workspace path (auto-detected if not provided)
+
+    Returns:
+        Entity object with all fields
+
+    Raises:
+        ValueError: If entity not found or soft-deleted
+    """
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Fetch entity excluding soft-deleted
+        cursor.execute(
+            "SELECT * FROM entities WHERE id = ? AND deleted_at IS NULL",
+            (entity_id,),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(f"Entity {entity_id} not found or has been deleted")
+
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def link_entity_to_task(
+    task_id: int,
+    entity_id: int,
+    workspace_path: str | None = None,
+    ctx: Context | None = None,
+    created_by: str | None = None,
+) -> dict[str, Any]:
+    """
+    Create a link between a task and an entity.
+
+    Args:
+        task_id: Task ID to link
+        entity_id: Entity ID to link
+        workspace_path: Optional workspace path (auto-detected if not provided)
+        ctx: FastMCP context (auto-injected, optional for direct calls)
+        created_by: Conversation ID (auto-captured from session if not provided)
+
+    Returns:
+        Link dict with link_id, task_id, entity_id, created_at
+
+    Raises:
+        ValueError: If task/entity not found, deleted, or link already exists
+    """
+    import sqlite3
+    from datetime import datetime
+
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    # Auto-capture session ID if created_by not provided and context available
+    if created_by is None and ctx is not None:
+        created_by = ctx.session_id
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Validate task exists and is not deleted
+        cursor.execute(
+            "SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,),
+        )
+        task_row = cursor.fetchone()
+        if not task_row:
+            raise ValueError(f"Task {task_id} not found or has been deleted")
+
+        # Validate entity exists and is not deleted
+        cursor.execute(
+            "SELECT id FROM entities WHERE id = ? AND deleted_at IS NULL",
+            (entity_id,),
+        )
+        entity_row = cursor.fetchone()
+        if not entity_row:
+            raise ValueError(f"Entity {entity_id} not found or has been deleted")
+
+        # Create link with timestamp
+        now = datetime.now().isoformat()
+        try:
+            cursor.execute(
+                """
+                INSERT INTO task_entity_links (task_id, entity_id, created_by, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (task_id, entity_id, created_by, now),
+            )
+            link_id = cursor.lastrowid
+            conn.commit()
+        except sqlite3.IntegrityError as e:
+            if "UNIQUE constraint failed" in str(e):
+                raise ValueError(
+                    f"Link already exists between task {task_id} and entity {entity_id}"
+                ) from e
+            raise
+
+        return {
+            "link_id": link_id,
+            "task_id": task_id,
+            "entity_id": entity_id,
+            "created_by": created_by,
+            "created_at": now,
+        }
+    finally:
+        conn.close()
+
+
 def main() -> None:
     """Main entry point for the Task MCP server."""
     mcp.run()
