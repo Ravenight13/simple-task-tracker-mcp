@@ -21,6 +21,8 @@ Task MCP Server is a lightweight Model Context Protocol (MCP) server for task an
 - `tasks` table: Full task hierarchy with parent/child relationships via `parent_task_id`
 - `depends_on` field: JSON array of task IDs for explicit dependencies
 - `file_references` field: JSON array of file paths for context
+- `entities` table: Typed entities (file, other) with JSON metadata for flexible domain modeling
+- `task_entity_links` table: Many-to-many relationships between tasks and entities
 - Soft delete: `deleted_at` timestamp instead of hard deletion (30-day retention)
 - State machine: `todo → in_progress → blocked → done → cancelled`
 
@@ -37,8 +39,8 @@ src/task_mcp/
 
 **Key Responsibilities:**
 - `utils.py`: Workspace detection priority: explicit param → TASK_MCP_WORKSPACE env → cwd
-- `database.py`: WAL mode configuration, connection pooling, foreign key enforcement
-- `models.py`: 10k char description limit, blocker_reason validation, status transitions
+- `database.py`: WAL mode configuration, connection pooling, foreign key enforcement, entity operations
+- `models.py`: 10k char description limit, blocker_reason validation, status transitions, entity models
 - `master.py`: Auto-register projects on first access, update last_accessed timestamps
 
 ### Workspace Detection Flow
@@ -90,10 +92,12 @@ MCP server registers via standard configuration:
 ## Critical Implementation Rules
 
 ### Data Constraints
-- **Description limit**: 10,000 characters maximum (prevent token overflow)
+- **Description limit**: 10,000 characters maximum (prevent token overflow) - applies to both tasks and entities
 - **Blocked status**: Requires `blocker_reason` field when status='blocked'
 - **Dependencies**: Task cannot progress to 'in_progress' or 'done' if depends_on tasks incomplete
 - **Subtasks independence**: Parent can complete with open subtasks (not auto-blocked)
+- **Entity uniqueness**: (entity_type, identifier) must be unique for active entities (WHERE deleted_at IS NULL)
+- **Entity metadata**: Must be valid JSON string or dict; no schema validation (generic storage)
 
 ### SQLite Configuration (MUST SET)
 ```python
@@ -133,7 +137,9 @@ All tools follow this pattern:
 7. Return FastMCP-formatted response
 
 ### Tool Categories
-- **CRUD**: create_task, update_task, get_task, list_tasks, delete_task
+- **Task CRUD**: create_task, update_task, get_task, list_tasks, delete_task
+- **Entity CRUD**: create_entity, update_entity, get_entity, list_entities, delete_entity
+- **Entity Linking**: link_entity_to_task, get_task_entities
 - **Search**: search_tasks (full-text on title/description)
 - **Advanced Queries**: get_task_tree (recursive subtasks), get_blocked_tasks, get_next_tasks
 - **Maintenance**: cleanup_deleted_tasks (purge >30 days old)
@@ -184,15 +190,180 @@ with tempfile.TemporaryDirectory() as tmpdir:
     pass
 ```
 
+## Entity System
+
+### Overview
+The Entity System enables tracking and linking arbitrary entities (files, vendors, etc.) to tasks for rich context management.
+
+**Key Features:**
+- 2 entity types: `file` (code files) and `other` (vendors, people, etc.)
+- 7 MCP tools for CRUD + linking operations
+- Generic JSON metadata for flexible data storage
+- Many-to-many relationships with tasks via junction table
+- Soft delete pattern for data safety
+
+### Database Schema
+
+**entities table (11 fields):**
+- `id` (INTEGER PRIMARY KEY)
+- `entity_type` (TEXT: 'file' or 'other')
+- `name` (TEXT: Display name, required)
+- `identifier` (TEXT: Unique ID like file path, nullable)
+- `description` (TEXT: Max 10k chars, nullable)
+- `metadata` (TEXT: JSON string for flexible data, nullable)
+- `tags` (TEXT: Space-separated, normalized to lowercase)
+- `created_by` (TEXT: Conversation ID, auto-captured)
+- `created_at` (TEXT: ISO 8601 timestamp)
+- `updated_at` (TEXT: ISO 8601 timestamp)
+- `deleted_at` (TEXT: Soft delete timestamp, nullable)
+
+**task_entity_links table (6 fields):**
+- `id` (INTEGER PRIMARY KEY)
+- `task_id` (INTEGER: Foreign key to tasks)
+- `entity_id` (INTEGER: Foreign key to entities)
+- `created_by` (TEXT: Conversation ID)
+- `created_at` (TEXT: ISO 8601 timestamp)
+- `deleted_at` (TEXT: Soft delete timestamp)
+
+**Indexes (6 total):**
+- Partial UNIQUE on (entity_type, identifier) WHERE deleted_at IS NULL
+- entity_type for filtering
+- deleted_at for soft delete queries
+- task_id for task→entity lookups
+- entity_id for entity→task lookups
+- (task_id, entity_id) UNIQUE for link integrity
+
+### MCP Tools
+
+**create_entity:** Create new entity with validation
+- Validates entity_type ('file' or 'other')
+- Checks duplicate identifier (scoped to entity_type)
+- Auto-captures conversation ID from context
+- Returns full entity dict with generated ID
+
+**update_entity:** Update existing entity (partial updates)
+- Only updates provided fields
+- Checks duplicate identifier on change
+- Updates updated_at timestamp automatically
+- Returns full updated entity dict
+
+**get_entity:** Retrieve single entity by ID
+- Returns error if not found or soft-deleted
+- Includes all entity fields
+
+**list_entities:** List entities with filtering
+- Filter by entity_type (optional)
+- Filter by tags (partial match, space-separated)
+- Excludes soft-deleted entities
+- Orders by created_at DESC
+
+**delete_entity:** Soft delete entity
+- Sets deleted_at timestamp
+- Cascades to all task_entity_links automatically
+- Returns deleted_links count
+- Allows re-creation with same identifier after deletion
+
+**link_entity_to_task:** Create task-entity link
+- Creates many-to-many relationship
+- Prevents duplicate links (UNIQUE constraint)
+- Auto-captures conversation ID
+- Returns link dict with timestamps
+
+**get_task_entities:** Get all entities for a task
+- Returns entities with link metadata
+- Includes link_created_at and link_created_by
+- Excludes soft-deleted entities/tasks
+- Orders by link_created_at DESC
+
+### Vendor Use Case
+
+Standard metadata schema for vendor entities:
+```json
+{
+  "vendor_code": "ABC-INS",
+  "phase": "active",
+  "formats": ["xlsx", "pdf"],
+  "brands": ["Brand A", "Brand B"]
+}
+```
+
+**Tag conventions:**
+- `vendor` - Mark as vendor entity
+- `insurance` / `telecom` / etc. - Industry tags
+- `active` / `testing` - Phase tags
+
+**Query patterns:**
+```python
+# Create vendor
+vendor = create_entity(
+    entity_type="other",
+    name="ABC Insurance",
+    identifier="ABC-INS",
+    metadata={"phase": "active", "formats": ["xlsx", "pdf"]},
+    tags="vendor insurance active"
+)
+
+# List all vendors
+vendors = list_entities(entity_type="other", tags="vendor")
+
+# Link vendor to task
+link_entity_to_task(task_id=42, entity_id=vendor["id"])
+
+# Get vendors for task
+task_vendors = get_task_entities(task_id=42)
+```
+
+### File Entity Use Case
+
+Track code files involved in tasks:
+```python
+# Create file entity
+file_entity = create_entity(
+    entity_type="file",
+    name="Authentication Controller",
+    identifier="/src/api/auth.py",
+    metadata={"language": "python", "line_count": 250},
+    tags="backend api authentication"
+)
+
+# Link file to refactoring task
+link_entity_to_task(task_id=123, entity_id=file_entity["id"])
+
+# Get all files for task
+files = get_task_entities(task_id=123)
+```
+
+### Critical Implementation Rules
+
+**Duplicate Detection:**
+- Uniqueness: (entity_type, identifier) WHERE deleted_at IS NULL
+- Different entity types CAN share identifiers
+- NULL identifiers do not conflict (multiple entities without identifiers allowed)
+- Soft-deleted entities don't block re-creation with same identifier
+
+**Cascade Deletion:**
+- Entity deletion ALWAYS cascades to all task-entity links
+- No optional cascade parameter (always cascade for data integrity)
+- Soft delete pattern used (deleted_at timestamp)
+
+**Metadata Handling:**
+- Accepts dict, list, or JSON string
+- Converts to JSON string for storage
+- Returns as JSON string (client must parse)
+- No schema validation (generic JSON storage)
+
 ## Common Pitfalls to Avoid
 
-1. **Don't hard-delete tasks**: Always use soft delete (set `deleted_at`)
+1. **Don't hard-delete tasks or entities**: Always use soft delete (set `deleted_at`)
 2. **Don't forget WAL mode**: Required for concurrent Claude Code + Desktop access
-3. **Don't return deleted tasks**: All queries must filter `WHERE deleted_at IS NULL`
-4. **Don't allow 25k+ token descriptions**: Validate 10k char limit on input
+3. **Don't return deleted tasks/entities**: All queries must filter `WHERE deleted_at IS NULL`
+4. **Don't allow 25k+ token descriptions**: Validate 10k char limit on input (tasks and entities)
 5. **Don't forget master.db updates**: Every operation must update `last_accessed`
 6. **Don't cascade parent blocking**: Subtasks don't automatically block parents
 7. **Don't skip dependency validation**: Check all depends_on tasks before status changes
+8. **Don't forget entity uniqueness**: Check (entity_type, identifier) uniqueness for active entities
+9. **Don't skip cascade on entity delete**: Entity deletion must cascade to all task_entity_links
+10. **Don't validate metadata schemas**: Entity metadata is generic JSON (no schema enforcement)
 
 ## Project Goals
 
@@ -201,5 +372,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
 - Cross-client visibility (Claude Desktop can discover all projects)
 - Concurrent read access without blocking
 - Complete task lifecycle management with dependencies
+- Rich entity tracking with bidirectional task-entity linking
+- Flexible metadata storage for domain-specific entities
 - 30-day soft delete safety net
 - No token overflow from large descriptions

@@ -2,15 +2,24 @@
 
 A lightweight Model Context Protocol (MCP) server for task and subtask tracking during agentic AI development. Provides isolated SQLite databases per project workspace for Claude Code and Claude Desktop integration.
 
-## What's New in v0.2.0 🎉
+## What's New in v0.3.0 🎉
 
-**Released:** 2025-10-27
+**Released:** 2025-10-29
 
-- ✨ **Auto-Capture Session ID**: Tasks now automatically capture the conversation ID in `created_by` field (no manual tracking needed)
-- 🕐 **Consistent Timestamps**: All timestamp fields now use ISO 8601 format (`YYYY-MM-DDTHH:MM:SS.microseconds`)
-- 🔧 **True Partial Updates**: Update only the fields you want to change (no workaround required)
+- 🏢 **Entity System**: Track files, vendors, and other entities with many-to-many task relationships
+- 🔗 **Entity Links**: 7 new MCP tools for entity CRUD and linking to tasks
+- 📊 **Generic Metadata**: Flexible JSON storage for entity-specific data (vendor phases, file metadata, etc.)
+- 🗂️ **Tag-based Discovery**: Filter entities by type and tags for quick discovery
+- 🧪 **60 Integration Tests**: Comprehensive test coverage for entity tools
 
-All changes are backward compatible with v0.1.0. See [CHANGELOG.md](CHANGELOG.md) for full details.
+All changes are backward compatible with v0.2.0. See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+### Previous Releases
+
+**v0.2.0** (2025-10-27)
+- ✨ Auto-capture conversation ID in `created_by` field
+- 🕐 ISO 8601 timestamp format
+- 🔧 True partial updates for tasks
 
 ## Features
 
@@ -23,6 +32,9 @@ All changes are backward compatible with v0.1.0. See [CHANGELOG.md](CHANGELOG.md
 - **Full-Text Search**: Search tasks by title and description
 - **Tag Organization**: Space-separated tags with normalization
 - **Concurrent Access**: SQLite WAL mode for simultaneous Claude Code + Desktop reads
+- **Entity Tracking**: Track files, vendors, and other entities with many-to-many task relationships
+- **Generic Metadata**: Flexible JSON storage for entity-specific data
+- **Entity Links**: Many-to-many relationships between tasks and entities with soft delete cascade
 
 ### 🔒 Data Validation
 - Description length limit (10,000 characters)
@@ -431,6 +443,182 @@ Set friendly name for a project.
 set_project_name("/path/to/project", "My Awesome Project")
 ```
 
+### Entity Tools
+
+#### create_entity
+Create a new entity (file, vendor, or other type).
+
+**Parameters:**
+- `entity_type` (str, required): Entity type ("file" or "other")
+- `name` (str, required): Human-readable entity name
+- `identifier` (str | None): Unique identifier (e.g., file path, vendor code)
+- `workspace_path` (str | None): Optional workspace path (auto-detected)
+- `description` (str | None): Entity description
+- `metadata` (dict | str | None): Generic JSON metadata
+- `tags` (str | None): Space-separated tags
+- `created_by` (str | None): Conversation ID (auto-captured)
+
+**Returns:** Entity object with all fields
+
+**Example:**
+```python
+# Create vendor entity
+vendor = create_entity(
+    entity_type="other",
+    name="ABC Insurance Company",
+    identifier="ABC-INS",
+    metadata={"phase": "active", "formats": ["xlsx", "pdf"]},
+    tags="vendor insurance active"
+)
+
+# Create file entity
+file_entity = create_entity(
+    entity_type="file",
+    name="Authentication Controller",
+    identifier="/src/auth/login.py",
+    metadata={"language": "python", "line_count": 250},
+    tags="backend auth"
+)
+```
+
+#### update_entity
+Update an existing entity with partial updates.
+
+**Parameters:**
+- `entity_id` (int, required): Entity ID
+- `workspace_path` (str | None): Optional workspace path
+- `name` (str | None): Updated name
+- `identifier` (str | None): Updated identifier
+- `description` (str | None): Updated description
+- `metadata` (dict | str | None): Updated metadata
+- `tags` (str | None): Updated tags
+
+**Returns:** Updated entity object
+
+**Example:**
+```python
+# Update vendor metadata
+update_entity(
+    entity_id=1,
+    metadata={"phase": "inactive", "formats": ["xlsx"]},
+    tags="vendor insurance inactive"
+)
+```
+
+#### get_entity
+Retrieve a single entity by ID.
+
+**Parameters:**
+- `entity_id` (int, required): Entity ID
+- `workspace_path` (str | None): Optional workspace path
+
+**Returns:** Entity object with all fields
+
+**Example:**
+```python
+entity = get_entity(entity_id=1)
+print(f"{entity['name']}: {entity['entity_type']}")
+```
+
+#### list_entities
+List entities with optional filtering.
+
+**Parameters:**
+- `workspace_path` (str | None): Optional workspace path
+- `entity_type` (str | None): Filter by entity type ("file" or "other")
+- `tags` (str | None): Filter by tags (partial match)
+
+**Returns:** List of entity objects
+
+**Example:**
+```python
+# Get all vendor entities
+vendors = list_entities(entity_type="other", tags="vendor")
+
+# Get all file entities with auth tag
+auth_files = list_entities(entity_type="file", tags="auth")
+```
+
+#### delete_entity
+Soft delete an entity (cascades to links).
+
+**Parameters:**
+- `entity_id` (int, required): Entity ID
+- `workspace_path` (str | None): Optional workspace path
+
+**Returns:** Success confirmation
+
+**Example:**
+```python
+delete_entity(entity_id=1)
+```
+
+#### link_entity_to_task
+Create a many-to-many relationship between a task and an entity.
+
+**Parameters:**
+- `task_id` (int, required): Task ID
+- `entity_id` (int, required): Entity ID
+- `workspace_path` (str | None): Optional workspace path
+- `created_by` (str | None): Conversation ID (auto-captured)
+
+**Returns:** Link object with link_id, task_id, entity_id, created_at
+
+**Example:**
+```python
+# Link vendor to commission processing task
+link_entity_to_task(task_id=5, entity_id=1)
+```
+
+#### get_task_entities
+Get all entities linked to a task.
+
+**Parameters:**
+- `task_id` (int, required): Task ID
+- `workspace_path` (str | None): Optional workspace path
+
+**Returns:** List of entity objects with link metadata (link_created_at, link_created_by)
+
+**Example:**
+```python
+# Get all vendors for a task
+entities = get_task_entities(task_id=5)
+for entity in entities:
+    print(f"{entity['name']} ({entity['entity_type']})")
+    print(f"  Linked at: {entity['link_created_at']}")
+```
+
+### Example: Vendor Entity Management
+
+Track insurance vendors and link them to commission processing tasks:
+
+```python
+# Create vendor entity
+vendor = create_entity(
+    entity_type="other",
+    name="ABC Insurance Company",
+    identifier="ABC-INS",
+    metadata={"phase": "active", "formats": ["xlsx", "pdf"]},
+    tags="vendor insurance active"
+)
+
+# Create commission processing task
+task = create_task(
+    title="Process ABC Insurance Q4 commissions",
+    priority="high",
+    tags="commission q4 vendor"
+)
+
+# Link vendor to task
+link_entity_to_task(task_id=task["id"], entity_id=vendor["id"])
+
+# Get all vendors for task
+vendors = get_task_entities(task_id=task["id"])
+for v in vendors:
+    metadata = json.loads(v['metadata'])
+    print(f"{v['name']}: Phase {metadata['phase']}, Formats: {metadata['formats']}")
+```
+
 ## Development
 
 ### Running Tests
@@ -509,6 +697,48 @@ CREATE INDEX idx_status ON tasks(status);
 CREATE INDEX idx_parent ON tasks(parent_task_id);
 CREATE INDEX idx_deleted ON tasks(deleted_at);
 CREATE INDEX idx_tags ON tasks(tags);
+```
+
+**Entities Table** (`entities`):
+```sql
+CREATE TABLE entities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL CHECK(entity_type IN ('file', 'other')),
+    name TEXT NOT NULL,
+    identifier TEXT,
+    description TEXT,
+    metadata TEXT,  -- JSON storage for flexible data
+    tags TEXT,  -- Space-separated tags
+    created_by TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX idx_entity_type ON entities(entity_type);
+CREATE INDEX idx_entity_deleted ON entities(deleted_at);
+CREATE INDEX idx_entity_tags ON entities(tags);
+CREATE UNIQUE INDEX idx_entity_identifier ON entities(identifier, entity_type)
+    WHERE deleted_at IS NULL;  -- Partial unique index
+```
+
+**Task-Entity Links Table** (`task_entity_links`):
+```sql
+CREATE TABLE task_entity_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    entity_id INTEGER NOT NULL,
+    created_by TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (entity_id) REFERENCES entities(id),
+    UNIQUE(task_id, entity_id)
+);
+
+-- Indexes for bidirectional queries
+CREATE INDEX idx_link_task ON task_entity_links(task_id);
+CREATE INDEX idx_link_entity ON task_entity_links(entity_id);
 ```
 
 **Projects Table** (`master.db`):
