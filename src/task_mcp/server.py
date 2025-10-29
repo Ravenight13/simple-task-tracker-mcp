@@ -889,6 +889,665 @@ def cleanup_deleted_tasks(
         conn.close()
 
 
+# ============================================================================
+# ENTITY SYSTEM TOOLS (v0.3.0)
+# ============================================================================
+
+
+@mcp.tool()
+def get_entity(
+    entity_id: int,
+    workspace_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Get a single entity by ID.
+
+    Args:
+        entity_id: Entity ID to retrieve
+        workspace_path: Optional workspace path (auto-detected if not provided)
+
+    Returns:
+        Entity object with all fields
+
+    Raises:
+        ValueError: If entity not found or soft-deleted
+    """
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Fetch entity excluding soft-deleted
+        cursor.execute(
+            "SELECT * FROM entities WHERE id = ? AND deleted_at IS NULL",
+            (entity_id,),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(f"Entity {entity_id} not found or has been deleted")
+
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def create_entity(
+    entity_type: str,
+    name: str,
+    ctx: Context | None = None,
+    workspace_path: str | None = None,
+    identifier: str | None = None,
+    description: str | None = None,
+    metadata: str | dict | list | None = None,
+    tags: str | None = None,
+    created_by: str | None = None,
+) -> dict[str, Any]:
+    """
+    Create a new entity with validation.
+
+    Args:
+        entity_type: 'file' or 'other'
+        name: Human-readable name (required)
+        ctx: FastMCP context (auto-injected, optional for direct calls)
+        workspace_path: Optional workspace path (auto-detected if not provided)
+        identifier: Unique identifier (file path, vendor code, etc.)
+        description: Optional description (max 10k chars)
+        metadata: Generic JSON metadata (dict, list, or JSON string)
+        tags: Space-separated tags
+        created_by: Conversation ID (auto-captured from MCP context)
+
+    Returns:
+        Created entity dict with all fields
+
+    Raises:
+        ValueError: If entity with same (entity_type, identifier) already exists
+    """
+    # Import at function level
+    import json
+    from datetime import datetime
+
+    from .database import get_connection
+    from .master import register_project
+    from .models import EntityCreate
+    from .utils import resolve_workspace, validate_description_length
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    # Auto-capture session ID if created_by not provided and context available
+    if created_by is None and ctx is not None:
+        created_by = ctx.session_id
+
+    # Validate description length
+    if description:
+        validate_description_length(description)
+
+    # Create EntityCreate model to validate inputs
+    # Note: EntityCreate model handles metadata conversion via BeforeValidator
+    entity_data = EntityCreate(
+        entity_type=entity_type,
+        name=name,
+        identifier=identifier,
+        description=description,
+        metadata=metadata,  # Model will convert dict/list to JSON string
+        tags=tags,
+        created_by=created_by,
+    )
+
+    # Get database connection
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    # Generate ISO 8601 timestamp for creation
+    now = datetime.now().isoformat()
+
+    try:
+        # Check for duplicate (entity_type, identifier) if identifier provided
+        if entity_data.identifier is not None:
+            cursor.execute(
+                """
+                SELECT id, name FROM entities
+                WHERE entity_type = ? AND identifier = ? AND deleted_at IS NULL
+                """,
+                (entity_data.entity_type, entity_data.identifier)
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                raise ValueError(
+                    f"Entity already exists: {entity_data.entity_type}='{entity_data.identifier}' "
+                    f"(id={existing['id']}, name='{existing['name']}')"
+                )
+
+        # Insert entity with explicit timestamps
+        cursor.execute(
+            """
+            INSERT INTO entities (
+                entity_type, name, identifier, description,
+                metadata, tags, created_by,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                entity_data.entity_type,
+                entity_data.name,
+                entity_data.identifier,
+                entity_data.description,
+                entity_data.metadata,  # Already JSON string from model
+                entity_data.tags,      # Already normalized from model
+                entity_data.created_by,
+                now,  # created_at
+                now,  # updated_at
+            ),
+        )
+
+        entity_id = cursor.lastrowid
+        conn.commit()
+
+        # Fetch created entity
+        cursor.execute("SELECT * FROM entities WHERE id = ?", (entity_id,))
+        row = cursor.fetchone()
+
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def link_entity_to_task(
+    task_id: int,
+    entity_id: int,
+    workspace_path: str | None = None,
+    ctx: Context | None = None,
+    created_by: str | None = None,
+) -> dict[str, Any]:
+    """
+    Create a link between a task and an entity.
+
+    Args:
+        task_id: Task ID to link
+        entity_id: Entity ID to link
+        workspace_path: Optional workspace path (auto-detected if not provided)
+        ctx: FastMCP context (auto-injected, optional for direct calls)
+        created_by: Conversation ID (auto-captured from session if not provided)
+
+    Returns:
+        Link dict with link_id, task_id, entity_id, created_at
+
+    Raises:
+        ValueError: If task/entity not found, deleted, or link already exists
+    """
+    import sqlite3
+    from datetime import datetime
+
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    # Auto-capture session ID if created_by not provided and context available
+    if created_by is None and ctx is not None:
+        created_by = ctx.session_id
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Validate task exists and is not deleted
+        cursor.execute(
+            "SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,),
+        )
+        task_row = cursor.fetchone()
+        if not task_row:
+            raise ValueError(f"Task {task_id} not found or has been deleted")
+
+        # Validate entity exists and is not deleted
+        cursor.execute(
+            "SELECT id FROM entities WHERE id = ? AND deleted_at IS NULL",
+            (entity_id,),
+        )
+        entity_row = cursor.fetchone()
+        if not entity_row:
+            raise ValueError(f"Entity {entity_id} not found or has been deleted")
+
+        # Create link with timestamp
+        now = datetime.now().isoformat()
+        try:
+            cursor.execute(
+                """
+                INSERT INTO task_entity_links (task_id, entity_id, created_by, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (task_id, entity_id, created_by, now),
+            )
+            link_id = cursor.lastrowid
+            conn.commit()
+        except sqlite3.IntegrityError as e:
+            if "UNIQUE constraint failed" in str(e):
+                raise ValueError(
+                    f"Link already exists between task {task_id} and entity {entity_id}"
+                ) from e
+            raise
+
+        return {
+            "link_id": link_id,
+            "task_id": task_id,
+            "entity_id": entity_id,
+            "created_by": created_by,
+            "created_at": now,
+        }
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def get_task_entities(
+    task_id: int,
+    workspace_path: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Get all entities linked to a task.
+
+    Returns entity details with link metadata.
+
+    Args:
+        task_id: Task ID to query
+        workspace_path: Optional workspace path (auto-detected)
+
+    Returns:
+        List of dicts with entity + link fields:
+        - All entity fields (id, entity_type, name, identifier, etc.)
+        - link_created_at: Timestamp when link was created
+        - link_created_by: Conversation ID that created link
+
+    Raises:
+        ValueError: If task not found or deleted
+
+    Examples:
+        # Get all entities linked to task 42
+        entities = get_task_entities(task_id=42)
+
+        # Returns:
+        [
+            {
+                "id": 7,
+                "entity_type": "file",
+                "name": "Login Controller",
+                "identifier": "/src/auth/login.py",
+                "description": "User authentication controller",
+                "metadata": '{"language": "python", "line_count": 250}',
+                "tags": "auth backend",
+                "created_by": "conv-123",
+                "created_at": "2025-10-29T10:00:00",
+                "updated_at": "2025-10-29T10:00:00",
+                "deleted_at": None,
+                "link_created_at": "2025-10-29T10:05:00",
+                "link_created_by": "conv-123"
+            }
+        ]
+    """
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Validate task exists and is not deleted
+        cursor.execute(
+            "SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,)
+        )
+        task = cursor.fetchone()
+
+        if not task:
+            raise ValueError(
+                f"Task {task_id} not found or has been deleted"
+            )
+
+        # Query entities with JOIN to get link metadata
+        # Returns all entity fields plus link creation info
+        cursor.execute("""
+            SELECT
+                e.*,
+                l.created_at AS link_created_at,
+                l.created_by AS link_created_by
+            FROM entities e
+            JOIN task_entity_links l ON e.id = l.entity_id
+            WHERE l.task_id = ?
+              AND e.deleted_at IS NULL
+              AND l.deleted_at IS NULL
+            ORDER BY l.created_at DESC
+        """, (task_id,))
+
+        entities = cursor.fetchall()
+
+        # Convert Row objects to dicts
+        return [dict(entity) for entity in entities]
+
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def update_entity(
+    entity_id: int,
+    workspace_path: str | None = None,
+    name: str | None = None,
+    identifier: str | None = None,
+    description: str | None = None,
+    metadata: str | dict | list | None = None,
+    tags: str | None = None,
+) -> dict[str, Any]:
+    """
+    Update an existing entity with partial updates.
+
+    Only provided fields will be updated. Validates identifier uniqueness
+    when changing identifiers to prevent duplicates within entity type.
+
+    Args:
+        entity_id: Entity ID to update (required)
+        workspace_path: Optional workspace path (auto-detected if not provided)
+        name: Updated name (1-500 chars)
+        identifier: Updated identifier (max 1000 chars, must be unique per type)
+        description: Updated description (max 10,000 chars)
+        metadata: Updated metadata (JSON string, dict, or list)
+        tags: Updated space-separated tags (normalized to lowercase)
+
+    Returns:
+        Updated entity object with all fields
+
+    Raises:
+        ValueError: If entity not found, soft-deleted, or identifier conflicts
+
+    Examples:
+        >>> # Update entity name
+        >>> update_entity(1, name="New Name")
+
+        >>> # Change identifier (validates uniqueness)
+        >>> update_entity(1, identifier="/new/path/file.py")
+
+        >>> # Update metadata
+        >>> update_entity(1, metadata={"version": "2.0", "status": "active"})
+    """
+    # Import at function level
+    import json
+    from datetime import datetime
+
+    from .database import get_connection
+    from .master import register_project
+    from .models import EntityUpdate
+    from .utils import resolve_workspace, validate_description_length
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    # Validate description length if provided
+    if description is not None:
+        validate_description_length(description)
+
+    # Convert metadata to JSON string if dict/list provided
+    metadata_json: str | None = None
+    if metadata is not None:
+        if isinstance(metadata, str):
+            metadata_json = metadata
+        elif isinstance(metadata, (dict, list)):
+            metadata_json = json.dumps(metadata)
+        else:
+            raise ValueError("metadata must be a JSON string, dict, or list")
+
+    # Create EntityUpdate model to validate inputs
+    update_data = EntityUpdate(
+        name=name,
+        identifier=identifier,
+        description=description,
+        metadata=metadata_json,
+        tags=tags,
+    )
+
+    # Get database connection
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Fetch current entity to validate changes
+        cursor.execute(
+            "SELECT * FROM entities WHERE id = ? AND deleted_at IS NULL",
+            (entity_id,),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(f"Entity {entity_id} not found or has been deleted")
+
+        current_entity = dict(row)
+
+        # Validate identifier uniqueness if changing
+        if identifier is not None and identifier != current_entity["identifier"]:
+            cursor.execute(
+                """
+                SELECT id FROM entities
+                WHERE entity_type = ? AND identifier = ? AND id != ? AND deleted_at IS NULL
+                """,
+                (current_entity["entity_type"], identifier, entity_id),
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                raise ValueError(
+                    f"Entity of type '{current_entity['entity_type']}' already exists "
+                    f"with identifier: {identifier}"
+                )
+
+        # Build UPDATE statement dynamically for provided fields only
+        update_fields = []
+        update_params: list[str | int | None] = []
+
+        if update_data.name is not None:
+            update_fields.append("name = ?")
+            update_params.append(update_data.name)
+
+        if update_data.identifier is not None:
+            update_fields.append("identifier = ?")
+            update_params.append(update_data.identifier)
+
+        if update_data.description is not None:
+            update_fields.append("description = ?")
+            update_params.append(update_data.description)
+
+        if update_data.metadata is not None:
+            update_fields.append("metadata = ?")
+            update_params.append(update_data.metadata)
+
+        if update_data.tags is not None:
+            update_fields.append("tags = ?")
+            update_params.append(update_data.tags)
+
+        # Always update updated_at timestamp
+        update_fields.append("updated_at = ?")
+        update_params.append(datetime.now().isoformat())
+
+        # Execute update if there are fields to update
+        if update_fields:
+            update_params.append(entity_id)
+            query = f"UPDATE entities SET {', '.join(update_fields)} WHERE id = ?"
+            cursor.execute(query, update_params)
+            conn.commit()
+
+        # Fetch and return updated entity
+        cursor.execute("SELECT * FROM entities WHERE id = ?", (entity_id,))
+        row = cursor.fetchone()
+
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def delete_entity(
+    entity_id: int,
+    workspace_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Soft delete an entity by setting deleted_at timestamp.
+
+    Automatically soft-deletes all associated task-entity links
+    to maintain referential integrity. When an entity is deleted,
+    all links pointing to it become inactive to prevent orphaned
+    references.
+
+    Args:
+        entity_id: Entity ID to delete
+        workspace_path: Optional workspace path (auto-detected)
+
+    Returns:
+        Success dict with:
+        - success: True
+        - entity_id: ID of deleted entity
+        - deleted_links: Count of links that were soft-deleted
+
+    Raises:
+        ValueError: If entity not found or already deleted
+
+    Example:
+        >>> delete_entity(entity_id=42)
+        {
+            "success": True,
+            "entity_id": 42,
+            "deleted_links": 3
+        }
+    """
+    from datetime import datetime
+
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Check if entity exists and is not already deleted
+        cursor.execute(
+            "SELECT id FROM entities WHERE id = ? AND deleted_at IS NULL",
+            (entity_id,),
+        )
+        entity = cursor.fetchone()
+
+        if not entity:
+            raise ValueError(f"Entity {entity_id} not found or already deleted")
+
+        # Generate ISO 8601 timestamp for deletion
+        now = datetime.now().isoformat()
+
+        # Soft delete the entity
+        cursor.execute(
+            "UPDATE entities SET deleted_at = ? WHERE id = ?",
+            (now, entity_id),
+        )
+
+        # Cascade soft delete all associated links
+        # This maintains referential integrity by marking links as inactive
+        cursor.execute(
+            """UPDATE task_entity_links
+               SET deleted_at = ?
+               WHERE entity_id = ? AND deleted_at IS NULL""",
+            (now, entity_id),
+        )
+        deleted_links = cursor.rowcount
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "entity_id": entity_id,
+            "deleted_links": deleted_links,
+        }
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def list_entities(
+    workspace_path: str | None = None,
+    entity_type: str | None = None,
+    tags: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    List entities with optional filters.
+
+    Args:
+        workspace_path: Optional workspace path (auto-detected)
+        entity_type: Filter by entity type ('file' or 'other')
+        tags: Filter by tags (space-separated, partial match)
+
+    Returns:
+        List of entity dicts matching filters
+    """
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Build query with filters
+        query = "SELECT * FROM entities WHERE deleted_at IS NULL"
+        params: list[str] = []
+
+        if entity_type:
+            query += " AND entity_type = ?"
+            params.append(entity_type)
+
+        if tags:
+            # Partial match on tags (OR logic for multiple tags)
+            tag_list = tags.split()
+            if tag_list:
+                tag_conditions = []
+                for tag in tag_list:
+                    tag_conditions.append("tags LIKE ?")
+                    params.append(f"%{tag}%")
+                query += f" AND ({' OR '.join(tag_conditions)})"
+
+        query += " ORDER BY created_at DESC"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 def main() -> None:
     """Main entry point for the Task MCP server."""
     mcp.run()

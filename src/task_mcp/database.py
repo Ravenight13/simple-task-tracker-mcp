@@ -44,9 +44,9 @@ def get_connection(workspace_path: str | None = None) -> sqlite3.Connection:
 
 def init_schema(conn: sqlite3.Connection) -> None:
     """
-    Initialize tasks table with all fields and indexes.
+    Initialize database schema with tasks, entities, and links tables.
 
-    Schema:
+    Tasks Table:
     - id INTEGER PRIMARY KEY AUTOINCREMENT
     - title TEXT NOT NULL
     - description TEXT (max 10k chars via app validation)
@@ -63,11 +63,45 @@ def init_schema(conn: sqlite3.Connection) -> None:
     - completed_at TIMESTAMP
     - deleted_at TIMESTAMP
 
+    Entities Table (v0.3.0):
+    - id INTEGER PRIMARY KEY AUTOINCREMENT
+    - entity_type TEXT NOT NULL CHECK(entity_type IN ('file', 'other'))
+    - name TEXT NOT NULL
+    - identifier TEXT (unique per type for active entities)
+    - description TEXT
+    - metadata TEXT (JSON)
+    - tags TEXT (space-separated)
+    - created_by TEXT
+    - created_at TIMESTAMP NOT NULL
+    - updated_at TIMESTAMP NOT NULL
+    - deleted_at TIMESTAMP
+
+    Task Entity Links Table (v0.3.0):
+    - id INTEGER PRIMARY KEY AUTOINCREMENT
+    - task_id INTEGER NOT NULL (FK to tasks.id)
+    - entity_id INTEGER NOT NULL (FK to entities.id)
+    - created_by TEXT
+    - created_at TIMESTAMP NOT NULL
+    - deleted_at TIMESTAMP
+    - UNIQUE(task_id, entity_id)
+
     Indexes:
+    Tasks:
     - idx_status ON tasks(status)
     - idx_parent ON tasks(parent_task_id)
     - idx_deleted ON tasks(deleted_at)
     - idx_tags ON tasks(tags)
+
+    Entities:
+    - idx_entity_unique UNIQUE ON entities(entity_type, identifier) WHERE deleted_at IS NULL
+    - idx_entity_type ON entities(entity_type)
+    - idx_entity_deleted ON entities(deleted_at)
+    - idx_entity_tags ON entities(tags)
+
+    Links:
+    - idx_link_task ON task_entity_links(task_id)
+    - idx_link_entity ON task_entity_links(entity_id)
+    - idx_link_deleted ON task_entity_links(deleted_at)
 
     Args:
         conn: SQLite connection to initialize
@@ -114,7 +148,78 @@ def init_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_tags ON tasks(tags)
     """)
 
-    # Commit schema changes
+    # ============================================================================
+    # ENTITY SYSTEM TABLES (v0.3.0)
+    # ============================================================================
+
+    # Create entities table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS entities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL CHECK(entity_type IN ('file', 'other')),
+            name TEXT NOT NULL,
+            identifier TEXT,
+            description TEXT,
+            metadata TEXT,
+            tags TEXT,
+            created_by TEXT,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            deleted_at TIMESTAMP
+        )
+    """)
+
+    # Create partial UNIQUE index (CRITICAL for soft delete compatibility)
+    # This enforces uniqueness ONLY for active (non-deleted) entities
+    # Allows re-creating entities with same identifier after soft delete
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_entity_unique
+        ON entities(entity_type, identifier)
+        WHERE deleted_at IS NULL AND identifier IS NOT NULL
+    """)
+
+    # Create performance indexes for entities
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_entity_type ON entities(entity_type)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_entity_deleted ON entities(deleted_at)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_entity_tags ON entities(tags)
+    """)
+
+    # Create task-entity links junction table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS task_entity_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            entity_id INTEGER NOT NULL,
+            created_by TEXT,
+            created_at TIMESTAMP NOT NULL,
+            deleted_at TIMESTAMP,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+            UNIQUE(task_id, entity_id)
+        )
+    """)
+
+    # Create indexes for links (bidirectional queries)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_link_task ON task_entity_links(task_id)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_link_entity ON task_entity_links(entity_id)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_link_deleted ON task_entity_links(deleted_at)
+    """)
+
+    # Commit all schema changes
     conn.commit()
 
 

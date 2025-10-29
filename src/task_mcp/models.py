@@ -3,8 +3,9 @@ Pydantic v2 data models for the Task MCP server.
 
 This module defines all data models with comprehensive validation rules:
 - Task model with full field validation
+- Entity model with full field validation (v0.3.0)
 - ProjectInfo model for project metadata
-- TaskCreate and TaskUpdate models for API operations
+- TaskCreate, TaskUpdate, EntityCreate, EntityUpdate models for API operations
 - Helper functions for validation and normalization
 """
 
@@ -25,6 +26,7 @@ from pydantic import (
 MAX_DESCRIPTION_LENGTH = 10_000
 VALID_STATUSES = ("todo", "in_progress", "blocked", "done", "cancelled")
 VALID_PRIORITIES = ("low", "medium", "high")
+VALID_ENTITY_TYPES = ("file", "other")
 
 
 # Helper Functions
@@ -159,6 +161,47 @@ def validate_json_list_of_strings(v: Any) -> Optional[str]:
         return json.dumps(v)
 
     raise ValueError("file_references must be a JSON string or list of strings")
+
+
+def validate_json_metadata(v: Any) -> Optional[str]:
+    """
+    Validate and convert metadata to JSON string.
+
+    Accepts any valid JSON structure (objects, arrays, primitives).
+
+    Args:
+        v: Input value (JSON string, dict, list, or None)
+
+    Returns:
+        JSON string or None
+
+    Examples:
+        >>> validate_json_metadata('{"key": "value"}')
+        '{"key": "value"}'
+        >>> validate_json_metadata({"key": "value"})
+        '{"key": "value"}'
+        >>> validate_json_metadata(None)
+        None
+    """
+    if v is None or v == "":
+        return None
+
+    # If it's already a string, validate JSON
+    if isinstance(v, str):
+        try:
+            json.loads(v)  # Validate it's valid JSON
+            return v
+        except json.JSONDecodeError as e:
+            raise ValueError(f"metadata must be valid JSON: {e}") from e
+
+    # If it's a dict or list, convert to JSON
+    if isinstance(v, (dict, list)):
+        try:
+            return json.dumps(v)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"metadata cannot be serialized to JSON: {e}") from e
+
+    raise ValueError("metadata must be a JSON string, dict, or list")
 
 
 # Pydantic Models
@@ -531,4 +574,214 @@ class ProjectInfoWithStats(ProjectInfo):
     stats: ProjectStats = Field(
         ...,
         description="Task statistics for this project"
+    )
+
+
+# ============================================================================
+# ENTITY SYSTEM MODELS (v0.3.0)
+# ============================================================================
+
+
+class Entity(BaseModel):
+    """
+    Entity model representing domain concepts linked to tasks.
+
+    Entities represent files, vendors, APIs, or any domain concept that
+    tasks reference. The MVP supports two types:
+    - file: File paths in the codebase
+    - other: Generic catch-all for domain-specific entities
+
+    Examples:
+        File entity:
+            Entity(
+                entity_type="file",
+                name="Login Controller",
+                identifier="/src/auth/login.py",
+                metadata='{"language": "python", "line_count": 250}',
+                tags="auth backend"
+            )
+
+        Vendor entity (using "other" type):
+            Entity(
+                entity_type="other",
+                name="ABC Insurance Vendor",
+                identifier="ABC-INS",
+                metadata='{"vendor_code": "ABC", "format": "xlsx", "phase": "active"}',
+                tags="vendor insurance commission"
+            )
+    """
+
+    model_config = ConfigDict(
+        strict=False,  # Allow coercion for datetime strings from DB
+        validate_assignment=True,  # Validate on attribute updates
+        extra='forbid',  # Reject unknown fields
+    )
+
+    # Core fields
+    id: Optional[int] = Field(None, description="Entity ID (auto-generated)")
+    entity_type: str = Field(
+        ...,
+        description="Entity type: 'file' or 'other'"
+    )
+    name: Annotated[str, Field(min_length=1, max_length=500)] = Field(
+        ..., description="Human-readable entity name (required, 1-500 chars)"
+    )
+    identifier: Optional[Annotated[str, Field(max_length=1000)]] = Field(
+        None,
+        description="Unique identifier (file path, vendor code, etc.) - max 1000 chars"
+    )
+    description: Optional[str] = Field(
+        None, description="Optional description (max 10,000 chars)"
+    )
+
+    # Metadata and organization
+    metadata: Annotated[
+        Optional[str],
+        BeforeValidator(validate_json_metadata)
+    ] = Field(
+        None,
+        description="Generic JSON metadata (freeform structure)"
+    )
+    tags: Optional[str] = Field(
+        None,
+        description="Space-separated tags (normalized to lowercase)"
+    )
+
+    # Audit fields
+    created_by: Optional[str] = Field(
+        None,
+        description="Conversation/session ID that created this entity"
+    )
+    created_at: Optional[datetime] = Field(
+        None,
+        description="Creation timestamp"
+    )
+    updated_at: Optional[datetime] = Field(
+        None,
+        description="Last update timestamp"
+    )
+    deleted_at: Optional[datetime] = Field(
+        None,
+        description="Soft delete timestamp"
+    )
+
+    # Field Validators
+
+    @field_validator('entity_type')
+    @classmethod
+    def validate_entity_type(cls, v: str) -> str:
+        """Validate entity_type is one of the allowed values."""
+        if v not in VALID_ENTITY_TYPES:
+            raise ValueError(
+                f"entity_type must be one of {VALID_ENTITY_TYPES}, got '{v}'"
+            )
+        return v
+
+    @field_validator('description')
+    @classmethod
+    def validate_description_length(cls, v: Optional[str]) -> Optional[str]:
+        """Enforce maximum description length of 10,000 characters."""
+        if v is not None and len(v) > MAX_DESCRIPTION_LENGTH:
+            raise ValueError(
+                f"Description cannot exceed {MAX_DESCRIPTION_LENGTH} characters "
+                f"(got {len(v)} characters)"
+            )
+        return v
+
+    @field_validator('tags')
+    @classmethod
+    def validate_and_normalize_tags(cls, v: Optional[str]) -> Optional[str]:
+        """Normalize tags to lowercase with single spaces."""
+        if v is None:
+            return None
+        return normalize_tags(v)
+
+    # Helper Methods
+
+    def get_metadata_dict(self) -> dict[str, Any]:
+        """
+        Parse metadata JSON string into dictionary.
+
+        Returns:
+            Dictionary from metadata JSON, or empty dict if no metadata
+
+        Examples:
+            >>> entity = Entity(entity_type="file", name="test.py",
+            ...                 metadata='{"language": "python"}')
+            >>> entity.get_metadata_dict()
+            {'language': 'python'}
+        """
+        if not self.metadata:
+            return {}
+        try:
+            result: dict[str, Any] = json.loads(self.metadata)
+            return result if isinstance(result, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+
+
+class EntityCreate(BaseModel):
+    """
+    Model for creating new entities.
+
+    Subset of Entity fields that can be provided during creation.
+    Other fields (id, timestamps) are auto-generated.
+    """
+
+    model_config = ConfigDict(
+        strict=False,
+        extra='forbid',
+    )
+
+    entity_type: str
+    name: Annotated[str, Field(min_length=1, max_length=500)]
+    identifier: Optional[Annotated[str, Field(max_length=1000)]] = None
+    description: Optional[str] = None
+    metadata: Annotated[
+        Optional[str],
+        BeforeValidator(validate_json_metadata)
+    ] = None
+    tags: Optional[str] = None
+    created_by: Optional[str] = None
+
+    # Reuse validators from Entity model
+    _validate_entity_type = field_validator('entity_type')(
+        Entity.validate_entity_type.__func__  # type: ignore[attr-defined]
+    )
+    _validate_description = field_validator('description')(
+        Entity.validate_description_length.__func__  # type: ignore[attr-defined]
+    )
+    _validate_tags = field_validator('tags')(
+        Entity.validate_and_normalize_tags.__func__  # type: ignore[attr-defined]
+    )
+
+
+class EntityUpdate(BaseModel):
+    """
+    Model for updating existing entities.
+
+    All fields are optional - only provided fields will be updated.
+    Includes validation for field constraints.
+    """
+
+    model_config = ConfigDict(
+        strict=False,
+        extra='forbid',
+    )
+
+    name: Optional[Annotated[str, Field(min_length=1, max_length=500)]] = None
+    identifier: Optional[Annotated[str, Field(max_length=1000)]] = None
+    description: Optional[str] = None
+    metadata: Annotated[
+        Optional[str],
+        BeforeValidator(validate_json_metadata)
+    ] = None
+    tags: Optional[str] = None
+
+    # Reuse validators from Entity model
+    _validate_description = field_validator('description')(
+        Entity.validate_description_length.__func__  # type: ignore[attr-defined]
+    )
+    _validate_tags = field_validator('tags')(
+        Entity.validate_and_normalize_tags.__func__  # type: ignore[attr-defined]
     )
