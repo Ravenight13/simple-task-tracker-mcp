@@ -373,6 +373,52 @@ class TestUpdateEntity:
         assert updated["identifier"] == "/same.py"
         assert updated["name"] == "New Name"
 
+    def test_update_entity_captures_updated_by(self, test_workspace: str) -> None:
+        """Test that updated_by field is captured when updating entity."""
+        # Create entity
+        entity = create_entity(
+            entity_type="file",
+            name="Original Name",
+            workspace_path=test_workspace,
+        )
+
+        # updated_by should be None for direct call (no context)
+        assert entity.get("updated_by") is None
+
+        # Update entity (direct call, no context)
+        updated = update_entity(
+            entity["id"],
+            name="Updated Name",
+            workspace_path=test_workspace,
+        )
+
+        # updated_by should still be None for direct call
+        assert updated.get("updated_by") is None
+        assert updated["name"] == "Updated Name"
+
+    def test_update_entity_preserves_created_by(self, test_workspace: str) -> None:
+        """Test that updating entity preserves original created_by value."""
+        # Create entity with explicit created_by
+        entity = create_entity(
+            entity_type="file",
+            name="Original",
+            created_by="conv-original",
+            workspace_path=test_workspace,
+        )
+
+        assert entity["created_by"] == "conv-original"
+
+        # Update entity
+        updated = update_entity(
+            entity["id"],
+            name="Updated",
+            workspace_path=test_workspace,
+        )
+
+        # created_by should remain unchanged
+        assert updated["created_by"] == "conv-original"
+        assert updated["name"] == "Updated"
+
 
 class TestGetEntity:
     """Test get_entity tool."""
@@ -1573,10 +1619,8 @@ class TestBidirectionalQueries:
             assert "link_created_at" in entity
             assert "link_created_by" in entity
 
-    def test_get_tasks_for_entity_manual(self, test_workspace: str) -> None:
-        """Reverse query: entity → tasks (manual SQL for now)."""
-        from task_mcp.database import get_connection
-
+    def test_get_tasks_for_entity(self, test_workspace: str) -> None:
+        """Reverse query: entity → tasks using get_entity_tasks."""
         # Create entity
         entity = create_entity(
             entity_type="file",
@@ -1593,33 +1637,72 @@ class TestBidirectionalQueries:
         link_entity_to_task(task1["id"], entity["id"], test_workspace)
         link_entity_to_task(task2["id"], entity["id"], test_workspace)
 
-        # Manual SQL query: entity → tasks (until get_entity_tasks() implemented)
-        conn = get_connection(test_workspace)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT t.id, t.title, l.created_at as link_created_at
-            FROM tasks t
-            JOIN task_entity_links l ON t.id = l.task_id
-            WHERE l.entity_id = ? AND l.deleted_at IS NULL AND t.deleted_at IS NULL
-            ORDER BY l.created_at DESC
-            """,
-            (entity["id"],),
-        )
-        tasks = [dict(row) for row in cursor.fetchall()]
-        conn.close()
+        # Query tasks for entity
+        tasks = get_entity_tasks(entity["id"], test_workspace)
 
         # Verify correct tasks returned
         assert len(tasks) == 2
         task_ids = {t["id"] for t in tasks}
         assert task_ids == {task1["id"], task2["id"]}
 
-        # Verify task fields present
+        # Verify all task fields present
         for task in tasks:
             assert "id" in task
             assert "title" in task
+            assert "status" in task
+            assert "priority" in task
             assert "link_created_at" in task
+            assert "link_created_by" in task
+
+    def test_bidirectional_entity_task_queries(self, test_workspace: str) -> None:
+        """Test both directions: task → entities AND entity → tasks."""
+        # Create a task
+        task = create_task(title="Refactor Auth Module", workspace_path=test_workspace)
+
+        # Create two entities
+        entity1 = create_entity(
+            entity_type="file",
+            name="Auth Controller",
+            identifier="/src/auth/controller.py",
+            workspace_path=test_workspace,
+        )
+        entity2 = create_entity(
+            entity_type="file",
+            name="Auth Service",
+            identifier="/src/auth/service.py",
+            workspace_path=test_workspace,
+        )
+
+        # Link both entities to the task
+        link_entity_to_task(task["id"], entity1["id"], test_workspace)
+        link_entity_to_task(task["id"], entity2["id"], test_workspace)
+
+        # Forward query: task → entities
+        task_entities = get_task_entities(task["id"], test_workspace)
+        assert len(task_entities) == 2
+        task_entity_ids = {e["id"] for e in task_entities}
+        assert task_entity_ids == {entity1["id"], entity2["id"]}
+
+        # Reverse query: entity1 → tasks
+        entity1_tasks = get_entity_tasks(entity1["id"], test_workspace)
+        assert len(entity1_tasks) == 1
+        assert entity1_tasks[0]["id"] == task["id"]
+        assert entity1_tasks[0]["title"] == "Refactor Auth Module"
+
+        # Reverse query: entity2 → tasks
+        entity2_tasks = get_entity_tasks(entity2["id"], test_workspace)
+        assert len(entity2_tasks) == 1
+        assert entity2_tasks[0]["id"] == task["id"]
+        assert entity2_tasks[0]["title"] == "Refactor Auth Module"
+
+        # Verify link metadata exists in both directions
+        for entity in task_entities:
+            assert "link_created_at" in entity
+            assert "link_created_by" in entity
+
+        for task_item in entity1_tasks + entity2_tasks:
+            assert "link_created_at" in task_item
+            assert "link_created_by" in task_item
 
 
 class TestSearchEntities:

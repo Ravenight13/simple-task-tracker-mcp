@@ -139,8 +139,8 @@ All tools follow this pattern:
 ### Tool Categories
 - **Task CRUD**: create_task, update_task, get_task, list_tasks, delete_task
 - **Entity CRUD**: create_entity, update_entity, get_entity, list_entities, delete_entity
-- **Entity Linking**: link_entity_to_task, get_task_entities
-- **Search**: search_tasks (full-text on title/description)
+- **Entity Linking**: link_entity_to_task, get_task_entities, get_entity_tasks
+- **Search**: search_tasks (full-text on title/description), search_entities (full-text on name/identifier)
 - **Advanced Queries**: get_task_tree (recursive subtasks), get_blocked_tasks, get_next_tasks
 - **Maintenance**: cleanup_deleted_tasks (purge >30 days old)
 - **Project Management**: list_projects, get_project_info, set_project_name
@@ -275,6 +275,14 @@ The Entity System enables tracking and linking arbitrary entities (files, vendor
 - Excludes soft-deleted entities/tasks
 - Orders by link_created_at DESC
 
+**get_entity_tasks:** Get all tasks for an entity (reverse query)
+- Returns tasks with link metadata
+- Includes link_created_at and link_created_by
+- Optional status filter (todo, in_progress, done, etc.)
+- Optional priority filter (low, medium, high)
+- Excludes soft-deleted tasks/entities
+- Orders by link_created_at DESC
+
 ### Vendor Use Case
 
 Standard metadata schema for vendor entities:
@@ -311,6 +319,21 @@ link_entity_to_task(task_id=42, entity_id=vendor["id"])
 
 # Get vendors for task
 task_vendors = get_task_entities(task_id=42)
+
+# Get all tasks for a vendor (reverse query)
+vendor_tasks = get_entity_tasks(entity_id=vendor["id"])
+
+# Get only high-priority tasks for a vendor
+high_priority_tasks = get_entity_tasks(
+    entity_id=vendor["id"],
+    priority="high"
+)
+
+# Get only in-progress tasks for a vendor
+in_progress_tasks = get_entity_tasks(
+    entity_id=vendor["id"],
+    status="in_progress"
+)
 ```
 
 ### File Entity Use Case
