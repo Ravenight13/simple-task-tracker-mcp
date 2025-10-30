@@ -60,8 +60,9 @@ git rev-parse --abbrev-ref HEAD  # Current branch
 git status --short               # Uncommitted files
 git log -1 --pretty=format:"%h %s"  # Last commit
 
-# Count commits today
-git log --since="$(date +"%Y-%m-%d") 00:00" --oneline | wc -l
+# Count commits today - use separate commands
+# Get today's date first, then use in git log
+git log --since="midnight" --oneline
 
 # Detect project type and quality gates
 # Check for: package.json (Node.js), pyproject.toml (Python), Cargo.toml (Rust), go.mod (Go)

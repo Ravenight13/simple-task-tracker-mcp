@@ -63,111 +63,121 @@ echo "✅ Directory structure verified"
 
 ## STEP 3: Context Detection
 
-**Detect current work context:**
+**Run these commands to gather context information:**
 
 ```bash
-# Get current git branch
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "none")
+git rev-parse --abbrev-ref HEAD 2>/dev/null
+```
 
-# Get working directory
-WORKING_DIR=$(pwd)
+```bash
+pwd
+```
 
-# Detect context from branch name (single-line safe)
-CONTEXT_HINT="GENERAL"
-if echo "$CURRENT_BRANCH" | grep -q "^feat"; then CONTEXT_HINT="DEVELOPMENT"; fi
-if echo "$CURRENT_BRANCH" | grep -q "^test"; then CONTEXT_HINT="TESTING"; fi
-if echo "$CURRENT_BRANCH" | grep -q "^docs"; then CONTEXT_HINT="DOCUMENTATION"; fi
-if echo "$CURRENT_BRANCH" | grep -q "^fix"; then CONTEXT_HINT="BUGFIX"; fi
+**Then analyze the results:**
+- Examine branch name for context hints:
+  - Starts with `feat/` → DEVELOPMENT
+  - Starts with `test/` → TESTING
+  - Starts with `docs/` → DOCUMENTATION
+  - Starts with `fix/` → BUGFIX
+  - Otherwise → GENERAL
+- Check working directory path:
+  - Contains `/test/` or `/tests/` → TESTING
+  - Contains `/docs/` → DOCUMENTATION
+  - Contains `/src/`, `/lib/`, or `/app/` → DEVELOPMENT
 
-# Override with directory detection if applicable (single-line safe)
-if echo "$WORKING_DIR" | grep -q "/tests\?/"; then CONTEXT_HINT="TESTING"; fi
-if echo "$WORKING_DIR" | grep -q "/docs/"; then CONTEXT_HINT="DOCUMENTATION"; fi
-if echo "$WORKING_DIR" | grep -q -E "/src/|/lib/|/app/"; then CONTEXT_HINT="DEVELOPMENT"; fi
-
-echo "📍 Detected Context: $CONTEXT_HINT"
-echo "🌿 Branch: $CURRENT_BRANCH"
-echo "📁 Directory: $WORKING_DIR"
+**Output the detected context:**
+```
+📍 Detected Context: {CONTEXT_HINT}
+🌿 Branch: {branch_name}
+📁 Directory: {working_dir}
 ```
 
 ---
 
 ## STEP 4: System Health Validation
 
-**Run comprehensive health checks:**
+**Run health checks using separate bash commands:**
 
+**4.1 Check Git Status**
 ```bash
-echo "🔍 Running system health checks..."
+git status --short
+```
+Interpret: If empty → clean working tree, otherwise count lines for uncommitted changes
 
-# Git Status
-GIT_STATUS=$(git status --short 2>/dev/null)
-if [ -z "$GIT_STATUS" ]; then
-    echo "✅ Git: Clean working tree"
-else
-    echo "⚠️  Git: $(echo "$GIT_STATUS" | wc -l) uncommitted changes"
-fi
+**4.2 Check Branch Sync Status**
+```bash
+git rev-list --left-right --count @{u}...HEAD 2>/dev/null || echo "No remote tracking"
+```
+Interpret: First number = commits behind, second = commits ahead
 
-# Check if branch is synced
-AHEAD_BEHIND=$(git rev-list --left-right --count @{u}...HEAD 2>/dev/null || echo "0 0")
-BEHIND=$(echo "$AHEAD_BEHIND" | cut -f1)
-AHEAD=$(echo "$AHEAD_BEHIND" | cut -f2)
+**4.3 Detect Project Type**
 
-if [ "$BEHIND" -gt 0 ]; then
-    echo "⚠️  Git: $BEHIND commits behind remote (consider git pull)"
-fi
-if [ "$AHEAD" -gt 0 ]; then
-    echo "📤 Git: $AHEAD commits ahead of remote"
-fi
+Check for Node.js:
+```bash
+test -f "package.json" && echo "Node.js project" || echo "No package.json"
+```
 
-# Check for quality tools (language-agnostic detection)
-if command -v npm &> /dev/null && [ -f "package.json" ]; then
-    echo "✅ Node.js project detected"
-    if npm run --silent 2>&1 | grep -q "lint"; then
-        echo "   - npm run lint available"
-    fi
-    if npm run --silent 2>&1 | grep -q "test"; then
-        echo "   - npm run test available"
-    fi
-fi
+Check for Python:
+```bash
+test -f "pyproject.toml" && echo "Python project" || echo "No pyproject.toml"
+```
 
-if command -v python3 &> /dev/null && [ -f "pyproject.toml" ]; then
-    echo "✅ Python project detected"
-    if command -v ruff &> /dev/null; then
-        echo "   - ruff (linter) available"
-    fi
-    if command -v mypy &> /dev/null; then
-        echo "   - mypy (type checker) available"
-    fi
-fi
+Check for Rust:
+```bash
+test -f "Cargo.toml" && echo "Rust project" || echo "No Cargo.toml"
+```
 
-if command -v cargo &> /dev/null && [ -f "Cargo.toml" ]; then
-    echo "✅ Rust project detected"
-    echo "   - cargo clippy available"
-    echo "   - cargo test available"
-fi
+Check for Go:
+```bash
+test -f "go.mod" && echo "Go project" || echo "No go.mod"
+```
 
-if command -v go &> /dev/null && [ -f "go.mod" ]; then
-    echo "✅ Go project detected"
-    echo "   - go vet available"
-    echo "   - go test available"
-fi
+**4.4 Check Quality Tools**
 
-# Check for session handoffs
-HANDOFF_COUNT=$(ls -1 session-handoffs/*.md 2>/dev/null | wc -l)
-if [ "$HANDOFF_COUNT" -gt 0 ]; then
-    LATEST_HANDOFF=$(ls -t session-handoffs/*.md 2>/dev/null | head -1)
-    echo "📋 Session handoffs: $HANDOFF_COUNT total"
-    echo "   Latest: $(basename "$LATEST_HANDOFF")"
-else
-    echo "📋 No previous session handoffs found"
-fi
+For Python projects:
+```bash
+command -v ruff && echo "ruff available"
+```
+```bash
+command -v mypy && echo "mypy available"
+```
+```bash
+command -v pytest && echo "pytest available"
+```
 
-# Check for subagent reports
-REPORT_COUNT=$(find docs/subagent-reports -name "*.md" 2>/dev/null | wc -l)
-if [ "$REPORT_COUNT" -gt 0 ]; then
-    echo "🤖 Subagent reports: $REPORT_COUNT total"
-else
-    echo "🤖 No subagent reports yet"
-fi
+For Node.js projects:
+```bash
+command -v npm && npm run 2>&1 | head -20
+```
+Look for "lint" and "test" in available scripts
+
+**4.5 Count Session Handoffs**
+```bash
+ls -1 session-handoffs/*.md 2>/dev/null | wc -l
+```
+```bash
+ls -t session-handoffs/*.md 2>/dev/null | head -1
+```
+
+**4.6 Count Subagent Reports**
+```bash
+find docs/subagent-reports -name "*.md" 2>/dev/null | wc -l
+```
+
+**Output formatted health summary:**
+```
+🔍 System Health Checks
+
+✅ Git: {clean | X uncommitted changes}
+{branch sync status}
+
+✅ Project type: {Python | Node.js | Rust | Go}
+   Quality tools: {available tools list}
+
+📋 Session handoffs: {count} total
+   Latest: {filename}
+
+🤖 Subagent reports: {count} total
 ```
 
 ---
