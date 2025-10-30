@@ -660,6 +660,10 @@ class Entity(BaseModel):
         None,
         description="Last update timestamp"
     )
+    updated_by: Optional[str] = Field(
+        None,
+        description="Conversation/session ID that last updated this entity"
+    )
     deleted_at: Optional[datetime] = Field(
         None,
         description="Soft delete timestamp"
@@ -777,6 +781,10 @@ class EntityUpdate(BaseModel):
         BeforeValidator(validate_json_metadata)
     ] = None
     tags: Optional[str] = None
+    updated_by: Optional[str] = Field(
+        None,
+        description="Conversation/session ID updating this entity"
+    )
 
     # Reuse validators from Entity model
     _validate_description = field_validator('description')(

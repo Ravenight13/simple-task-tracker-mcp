@@ -588,6 +588,38 @@ for entity in entities:
     print(f"  Linked at: {entity['link_created_at']}")
 ```
 
+#### get_entity_tasks
+Get all tasks linked to an entity (reverse query).
+
+**Parameters:**
+- `entity_id` (int, required): Entity ID
+- `workspace_path` (str | None): Optional workspace path
+- `status` (str | None): Filter by task status (todo, in_progress, done, etc.)
+- `priority` (str | None): Filter by task priority (low, medium, high)
+
+**Returns:** List of task objects with link metadata (link_created_at, link_created_by)
+
+**Example:**
+```python
+# Get all tasks for ABC Insurance vendor
+tasks = get_entity_tasks(entity_id=7)
+for task in tasks:
+    print(f"{task['title']} - {task['status']}")
+    print(f"  Linked at: {task['link_created_at']}")
+
+# Get only high-priority tasks for a vendor
+high_priority_tasks = get_entity_tasks(
+    entity_id=7,
+    priority="high"
+)
+
+# Get only in-progress tasks for a vendor
+in_progress_tasks = get_entity_tasks(
+    entity_id=7,
+    status="in_progress"
+)
+```
+
 ### Example: Vendor Entity Management
 
 Track insurance vendors and link them to commission processing tasks:
@@ -612,11 +644,16 @@ task = create_task(
 # Link vendor to task
 link_entity_to_task(task_id=task["id"], entity_id=vendor["id"])
 
-# Get all vendors for task
+# Get all vendors for task (forward query)
 vendors = get_task_entities(task_id=task["id"])
 for v in vendors:
     metadata = json.loads(v['metadata'])
     print(f"{v['name']}: Phase {metadata['phase']}, Formats: {metadata['formats']}")
+
+# Get all tasks for ABC Insurance vendor (reverse query)
+vendor_tasks = get_entity_tasks(entity_id=vendor["id"])
+for t in vendor_tasks:
+    print(f"Task: {t['title']} ({t['status']}) - Priority: {t['priority']}")
 ```
 
 ## Development
@@ -709,9 +746,10 @@ CREATE TABLE entities (
     description TEXT,
     metadata TEXT,  -- JSON storage for flexible data
     tags TEXT,  -- Space-separated tags
-    created_by TEXT,
+    created_by TEXT,  -- Audit: who created
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT,  -- Audit: who last updated
     deleted_at TIMESTAMP
 );
 

@@ -50,10 +50,45 @@ class TestEntitySchemaMigration:
                 'created_by': 'TEXT',
                 'created_at': 'TIMESTAMP',
                 'updated_at': 'TIMESTAMP',
+                'updated_by': 'TEXT',
                 'deleted_at': 'TIMESTAMP'
             }
 
             assert columns == expected_columns
+            conn.close()
+
+    def test_updated_by_column_exists(self):
+        """Verify updated_by column exists in entities table."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conn = get_connection(tmpdir)
+
+            # Verify column exists
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(entities)")
+            columns = {row[1] for row in cursor.fetchall()}
+
+            assert 'updated_by' in columns
+            conn.close()
+
+    def test_updated_by_nullable(self):
+        """Verify updated_by column is nullable (backward compatibility)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conn = get_connection(tmpdir)
+            now = datetime.utcnow()
+
+            # Insert entity without updated_by (should succeed)
+            conn.execute("""
+                INSERT INTO entities (entity_type, name, created_at, updated_at)
+                VALUES ('file', 'test.py', ?, ?)
+            """, (now, now))
+
+            # Verify entity was created with NULL updated_by
+            cursor = conn.execute("""
+                SELECT updated_by FROM entities WHERE name = 'test.py'
+            """)
+            result = cursor.fetchone()
+            assert result['updated_by'] is None
+
             conn.close()
 
     def test_task_entity_links_table_created(self):

@@ -18,9 +18,11 @@ list_entities = server.list_entities.fn
 delete_entity = server.delete_entity.fn
 link_entity_to_task = server.link_entity_to_task.fn
 get_task_entities = server.get_task_entities.fn
+get_entity_tasks = server.get_entity_tasks.fn
 
 # Also need create_task for testing task-entity links
 create_task = server.create_task.fn
+search_entities = server.search_entities.fn
 
 
 @pytest.fixture
@@ -370,6 +372,52 @@ class TestUpdateEntity:
 
         assert updated["identifier"] == "/same.py"
         assert updated["name"] == "New Name"
+
+    def test_update_entity_captures_updated_by(self, test_workspace: str) -> None:
+        """Test that updated_by field is captured when updating entity."""
+        # Create entity
+        entity = create_entity(
+            entity_type="file",
+            name="Original Name",
+            workspace_path=test_workspace,
+        )
+
+        # updated_by should be None for direct call (no context)
+        assert entity.get("updated_by") is None
+
+        # Update entity (direct call, no context)
+        updated = update_entity(
+            entity["id"],
+            name="Updated Name",
+            workspace_path=test_workspace,
+        )
+
+        # updated_by should still be None for direct call
+        assert updated.get("updated_by") is None
+        assert updated["name"] == "Updated Name"
+
+    def test_update_entity_preserves_created_by(self, test_workspace: str) -> None:
+        """Test that updating entity preserves original created_by value."""
+        # Create entity with explicit created_by
+        entity = create_entity(
+            entity_type="file",
+            name="Original",
+            created_by="conv-original",
+            workspace_path=test_workspace,
+        )
+
+        assert entity["created_by"] == "conv-original"
+
+        # Update entity
+        updated = update_entity(
+            entity["id"],
+            name="Updated",
+            workspace_path=test_workspace,
+        )
+
+        # created_by should remain unchanged
+        assert updated["created_by"] == "conv-original"
+        assert updated["name"] == "Updated"
 
 
 class TestGetEntity:
@@ -1294,6 +1342,240 @@ class TestMetadataValidation:
         assert "brands" in metadata_dict
 
 
+class TestGetEntityTasks:
+    """Test get_entity_tasks reverse query tool."""
+
+    def test_get_entity_tasks(self, test_workspace: str) -> None:
+        """Test getting all tasks linked to an entity."""
+        entity = create_entity(
+            entity_type="file",
+            name="Shared Entity",
+            identifier="/shared.py",
+            workspace_path=test_workspace,
+        )
+        task1 = create_task(
+            title="Task 1",
+            status="todo",
+            priority="high",
+            workspace_path=test_workspace,
+        )
+        task2 = create_task(
+            title="Task 2",
+            status="in_progress",
+            priority="medium",
+            workspace_path=test_workspace,
+        )
+
+        # Link entity to tasks
+        link_entity_to_task(task1["id"], entity["id"], test_workspace)
+        link_entity_to_task(task2["id"], entity["id"], test_workspace)
+
+        # Get tasks for entity
+        tasks = get_entity_tasks(entity["id"], test_workspace)
+
+        assert len(tasks) == 2
+        task_titles = {t["title"] for t in tasks}
+        assert task_titles == {"Task 1", "Task 2"}
+
+        # Verify link metadata is included
+        for task in tasks:
+            assert "link_created_at" in task
+            assert "link_created_by" in task
+            assert task["link_created_at"] is not None
+
+    def test_get_entity_tasks_includes_link_metadata(self, test_workspace: str) -> None:
+        """Test that link metadata is included in response."""
+        entity = create_entity(
+            entity_type="other",
+            name="ABC Insurance Vendor",
+            identifier="ABC-INS",
+            workspace_path=test_workspace,
+        )
+        task = create_task(
+            title="Integrate ABC Insurance",
+            description="ETL pipeline for ABC Insurance",
+            workspace_path=test_workspace,
+        )
+        link_entity_to_task(task["id"], entity["id"], test_workspace)
+
+        tasks = get_entity_tasks(entity["id"], test_workspace)
+
+        assert len(tasks) == 1
+        t = tasks[0]
+        assert t["id"] == task["id"]
+        assert t["title"] == "Integrate ABC Insurance"
+        assert t["description"] == "ETL pipeline for ABC Insurance"
+        assert "link_created_at" in t
+        assert "link_created_by" in t
+        assert t["link_created_at"] is not None
+
+    def test_get_entity_tasks_filter_by_status(self, test_workspace: str) -> None:
+        """Test filtering tasks by status."""
+        entity = create_entity(
+            entity_type="file",
+            name="Test Entity",
+            workspace_path=test_workspace,
+        )
+        task1 = create_task(title="Todo Task", status="todo", workspace_path=test_workspace)
+        task2 = create_task(title="In Progress Task", status="in_progress", workspace_path=test_workspace)
+        task3 = create_task(title="Done Task", status="done", workspace_path=test_workspace)
+
+        # Link all tasks to entity
+        link_entity_to_task(task1["id"], entity["id"], test_workspace)
+        link_entity_to_task(task2["id"], entity["id"], test_workspace)
+        link_entity_to_task(task3["id"], entity["id"], test_workspace)
+
+        # Filter by status='todo'
+        todo_tasks = get_entity_tasks(entity["id"], test_workspace, status="todo")
+        assert len(todo_tasks) == 1
+        assert todo_tasks[0]["title"] == "Todo Task"
+        assert todo_tasks[0]["status"] == "todo"
+
+        # Filter by status='in_progress'
+        in_progress_tasks = get_entity_tasks(entity["id"], test_workspace, status="in_progress")
+        assert len(in_progress_tasks) == 1
+        assert in_progress_tasks[0]["title"] == "In Progress Task"
+        assert in_progress_tasks[0]["status"] == "in_progress"
+
+        # Filter by status='done'
+        done_tasks = get_entity_tasks(entity["id"], test_workspace, status="done")
+        assert len(done_tasks) == 1
+        assert done_tasks[0]["title"] == "Done Task"
+        assert done_tasks[0]["status"] == "done"
+
+    def test_get_entity_tasks_filter_by_priority(self, test_workspace: str) -> None:
+        """Test filtering tasks by priority."""
+        entity = create_entity(
+            entity_type="other",
+            name="Vendor",
+            workspace_path=test_workspace,
+        )
+        task1 = create_task(title="Low Priority", priority="low", workspace_path=test_workspace)
+        task2 = create_task(title="Medium Priority", priority="medium", workspace_path=test_workspace)
+        task3 = create_task(title="High Priority", priority="high", workspace_path=test_workspace)
+
+        # Link all tasks to entity
+        link_entity_to_task(task1["id"], entity["id"], test_workspace)
+        link_entity_to_task(task2["id"], entity["id"], test_workspace)
+        link_entity_to_task(task3["id"], entity["id"], test_workspace)
+
+        # Filter by priority='high'
+        high_priority_tasks = get_entity_tasks(entity["id"], test_workspace, priority="high")
+        assert len(high_priority_tasks) == 1
+        assert high_priority_tasks[0]["title"] == "High Priority"
+        assert high_priority_tasks[0]["priority"] == "high"
+
+        # Filter by priority='medium'
+        medium_priority_tasks = get_entity_tasks(entity["id"], test_workspace, priority="medium")
+        assert len(medium_priority_tasks) == 1
+        assert medium_priority_tasks[0]["title"] == "Medium Priority"
+        assert medium_priority_tasks[0]["priority"] == "medium"
+
+        # Filter by priority='low'
+        low_priority_tasks = get_entity_tasks(entity["id"], test_workspace, priority="low")
+        assert len(low_priority_tasks) == 1
+        assert low_priority_tasks[0]["title"] == "Low Priority"
+        assert low_priority_tasks[0]["priority"] == "low"
+
+    def test_get_entity_tasks_empty_result(self, test_workspace: str) -> None:
+        """Test getting tasks for entity with no links."""
+        entity = create_entity(
+            entity_type="file",
+            name="Unlinked Entity",
+            workspace_path=test_workspace,
+        )
+
+        tasks = get_entity_tasks(entity["id"], test_workspace)
+
+        assert tasks == []
+
+    def test_get_entity_tasks_excludes_deleted(self, test_workspace: str) -> None:
+        """Test that deleted tasks are excluded from results."""
+        from task_mcp.server import delete_task
+
+        entity = create_entity(
+            entity_type="file",
+            name="Test Entity",
+            workspace_path=test_workspace,
+        )
+        task1 = create_task(title="Active Task", workspace_path=test_workspace)
+        task2 = create_task(title="To Delete", workspace_path=test_workspace)
+
+        # Link both tasks
+        link_entity_to_task(task1["id"], entity["id"], test_workspace)
+        link_entity_to_task(task2["id"], entity["id"], test_workspace)
+
+        # Delete one task
+        delete_task.fn(task2["id"], test_workspace)
+
+        # Should only return active task
+        tasks = get_entity_tasks(entity["id"], test_workspace)
+        assert len(tasks) == 1
+        assert tasks[0]["title"] == "Active Task"
+
+    def test_get_entity_tasks_invalid_entity_error(self, test_workspace: str) -> None:
+        """Test getting tasks for non-existent entity raises error."""
+        with pytest.raises(ValueError, match="Entity 999 not found or has been deleted"):
+            get_entity_tasks(999, test_workspace)
+
+    def test_get_entity_tasks_ordered_by_link_created_at(self, test_workspace: str) -> None:
+        """Test tasks are returned in reverse chronological order of linking."""
+        entity = create_entity(
+            entity_type="file",
+            name="Test Entity",
+            workspace_path=test_workspace,
+        )
+        t1 = create_task(title="First", workspace_path=test_workspace)
+        t2 = create_task(title="Second", workspace_path=test_workspace)
+        t3 = create_task(title="Third", workspace_path=test_workspace)
+
+        # Link in order
+        link_entity_to_task(t1["id"], entity["id"], test_workspace)
+        link_entity_to_task(t2["id"], entity["id"], test_workspace)
+        link_entity_to_task(t3["id"], entity["id"], test_workspace)
+
+        tasks = get_entity_tasks(entity["id"], test_workspace)
+
+        # Should be in reverse order (most recent link first)
+        assert tasks[0]["id"] == t3["id"]
+        assert tasks[1]["id"] == t2["id"]
+        assert tasks[2]["id"] == t1["id"]
+
+    def test_get_entity_tasks_includes_all_task_fields(self, test_workspace: str) -> None:
+        """Test that all task fields are included in response."""
+        entity = create_entity(
+            entity_type="other",
+            name="Vendor",
+            identifier="ABC-INS",
+            workspace_path=test_workspace,
+        )
+        task = create_task(
+            title="Integration Task",
+            description="ETL pipeline implementation",
+            status="in_progress",
+            priority="high",
+            tags="vendor integration",
+            workspace_path=test_workspace,
+        )
+        link_entity_to_task(task["id"], entity["id"], test_workspace)
+
+        tasks = get_entity_tasks(entity["id"], test_workspace)
+
+        assert len(tasks) == 1
+        t = tasks[0]
+        assert t["id"] == task["id"]
+        assert t["title"] == "Integration Task"
+        assert t["description"] == "ETL pipeline implementation"
+        assert t["status"] == "in_progress"
+        assert t["priority"] == "high"
+        assert t["tags"] == "vendor integration"
+        assert t["created_at"] is not None
+        assert t["updated_at"] is not None
+        assert t["deleted_at"] is None
+        assert "link_created_at" in t
+        assert "link_created_by" in t
+
+
 class TestBidirectionalQueries:
     """Test entity ↔ task query performance and correctness."""
 
@@ -1337,10 +1619,8 @@ class TestBidirectionalQueries:
             assert "link_created_at" in entity
             assert "link_created_by" in entity
 
-    def test_get_tasks_for_entity_manual(self, test_workspace: str) -> None:
-        """Reverse query: entity → tasks (manual SQL for now)."""
-        from task_mcp.database import get_connection
-
+    def test_get_tasks_for_entity(self, test_workspace: str) -> None:
+        """Reverse query: entity → tasks using get_entity_tasks."""
         # Create entity
         entity = create_entity(
             entity_type="file",
@@ -1357,30 +1637,342 @@ class TestBidirectionalQueries:
         link_entity_to_task(task1["id"], entity["id"], test_workspace)
         link_entity_to_task(task2["id"], entity["id"], test_workspace)
 
-        # Manual SQL query: entity → tasks (until get_entity_tasks() implemented)
-        conn = get_connection(test_workspace)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT t.id, t.title, l.created_at as link_created_at
-            FROM tasks t
-            JOIN task_entity_links l ON t.id = l.task_id
-            WHERE l.entity_id = ? AND l.deleted_at IS NULL AND t.deleted_at IS NULL
-            ORDER BY l.created_at DESC
-            """,
-            (entity["id"],),
-        )
-        tasks = [dict(row) for row in cursor.fetchall()]
-        conn.close()
+        # Query tasks for entity
+        tasks = get_entity_tasks(entity["id"], test_workspace)
 
         # Verify correct tasks returned
         assert len(tasks) == 2
         task_ids = {t["id"] for t in tasks}
         assert task_ids == {task1["id"], task2["id"]}
 
-        # Verify task fields present
+        # Verify all task fields present
         for task in tasks:
             assert "id" in task
             assert "title" in task
+            assert "status" in task
+            assert "priority" in task
             assert "link_created_at" in task
+            assert "link_created_by" in task
+
+    def test_bidirectional_entity_task_queries(self, test_workspace: str) -> None:
+        """Test both directions: task → entities AND entity → tasks."""
+        # Create a task
+        task = create_task(title="Refactor Auth Module", workspace_path=test_workspace)
+
+        # Create two entities
+        entity1 = create_entity(
+            entity_type="file",
+            name="Auth Controller",
+            identifier="/src/auth/controller.py",
+            workspace_path=test_workspace,
+        )
+        entity2 = create_entity(
+            entity_type="file",
+            name="Auth Service",
+            identifier="/src/auth/service.py",
+            workspace_path=test_workspace,
+        )
+
+        # Link both entities to the task
+        link_entity_to_task(task["id"], entity1["id"], test_workspace)
+        link_entity_to_task(task["id"], entity2["id"], test_workspace)
+
+        # Forward query: task → entities
+        task_entities = get_task_entities(task["id"], test_workspace)
+        assert len(task_entities) == 2
+        task_entity_ids = {e["id"] for e in task_entities}
+        assert task_entity_ids == {entity1["id"], entity2["id"]}
+
+        # Reverse query: entity1 → tasks
+        entity1_tasks = get_entity_tasks(entity1["id"], test_workspace)
+        assert len(entity1_tasks) == 1
+        assert entity1_tasks[0]["id"] == task["id"]
+        assert entity1_tasks[0]["title"] == "Refactor Auth Module"
+
+        # Reverse query: entity2 → tasks
+        entity2_tasks = get_entity_tasks(entity2["id"], test_workspace)
+        assert len(entity2_tasks) == 1
+        assert entity2_tasks[0]["id"] == task["id"]
+        assert entity2_tasks[0]["title"] == "Refactor Auth Module"
+
+        # Verify link metadata exists in both directions
+        for entity in task_entities:
+            assert "link_created_at" in entity
+            assert "link_created_by" in entity
+
+        for task_item in entity1_tasks + entity2_tasks:
+            assert "link_created_at" in task_item
+            assert "link_created_by" in task_item
+
+
+class TestSearchEntities:
+    """Test search_entities tool."""
+
+    def test_search_entities_by_name(self, test_workspace: str) -> None:
+        """Test searching entities by name."""
+        # Create entities with different names
+        create_entity(
+            entity_type="file",
+            name="Login Controller",
+            identifier="/src/auth/login.py",
+            workspace_path=test_workspace,
+        )
+        create_entity(
+            entity_type="file",
+            name="Logout Handler",
+            identifier="/src/auth/logout.py",
+            workspace_path=test_workspace,
+        )
+        create_entity(
+            entity_type="other",
+            name="ABC Vendor",
+            identifier="ABC-INS",
+            workspace_path=test_workspace,
+        )
+
+        # Search for "login"
+        results = search_entities("login", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["name"] == "Login Controller"
+
+        # Search for "logout"
+        results = search_entities("logout", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["name"] == "Logout Handler"
+
+    def test_search_entities_by_identifier(self, test_workspace: str) -> None:
+        """Test searching entities by identifier."""
+        # Create entities with different identifiers
+        create_entity(
+            entity_type="file",
+            name="Auth Module",
+            identifier="/src/auth/module.py",
+            workspace_path=test_workspace,
+        )
+        create_entity(
+            entity_type="file",
+            name="Database Module",
+            identifier="/src/db/module.py",
+            workspace_path=test_workspace,
+        )
+        create_entity(
+            entity_type="other",
+            name="ABC Vendor",
+            identifier="ABC-INS",
+            workspace_path=test_workspace,
+        )
+
+        # Search by path fragment
+        results = search_entities("/src/auth/", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["name"] == "Auth Module"
+
+        # Search by vendor code
+        results = search_entities("ABC-INS", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["name"] == "ABC Vendor"
+
+    def test_search_entities_by_partial_match(self, test_workspace: str) -> None:
+        """Test partial matching in search."""
+        # Create entities
+        create_entity(
+            entity_type="file",
+            name="Authentication Controller",
+            identifier="/src/auth/controller.py",
+            workspace_path=test_workspace,
+        )
+        create_entity(
+            entity_type="file",
+            name="Authorization Handler",
+            identifier="/src/authz/handler.py",
+            workspace_path=test_workspace,
+        )
+        create_entity(
+            entity_type="other",
+            name="User Management",
+            identifier="USER-MGMT",
+            workspace_path=test_workspace,
+        )
+
+        # Search for "auth" - should match both Authentication and Authorization
+        results = search_entities("auth", workspace_path=test_workspace)
+        assert len(results) == 2
+        names = {r["name"] for r in results}
+        assert names == {"Authentication Controller", "Authorization Handler"}
+
+        # Search for "controller" - should match name and identifier
+        results = search_entities("controller", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["name"] == "Authentication Controller"
+
+    def test_search_entities_with_type_filter(self, test_workspace: str) -> None:
+        """Test searching with entity_type filter."""
+        # Create mixed entities
+        create_entity(
+            entity_type="file",
+            name="Login File",
+            identifier="/src/auth/login.py",
+            workspace_path=test_workspace,
+        )
+        create_entity(
+            entity_type="other",
+            name="Login Vendor",
+            identifier="LOGIN-VENDOR",
+            workspace_path=test_workspace,
+        )
+
+        # Search for "login" without filter - should match both
+        results = search_entities("login", workspace_path=test_workspace)
+        assert len(results) == 2
+
+        # Search for "login" with file filter - should match only file
+        results = search_entities("login", entity_type="file", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["entity_type"] == "file"
+        assert results[0]["name"] == "Login File"
+
+        # Search for "login" with other filter - should match only vendor
+        results = search_entities("login", entity_type="other", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["entity_type"] == "other"
+        assert results[0]["name"] == "Login Vendor"
+
+    def test_search_entities_case_insensitive(self, test_workspace: str) -> None:
+        """Test case-insensitive search."""
+        # Create entity with mixed case
+        create_entity(
+            entity_type="file",
+            name="UserAuthService",
+            identifier="/src/UserAuth.py",
+            workspace_path=test_workspace,
+        )
+
+        # Search with lowercase - should match
+        results = search_entities("userauth", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["name"] == "UserAuthService"
+
+        # Search with uppercase - should match
+        results = search_entities("USERAUTH", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["name"] == "UserAuthService"
+
+        # Search with mixed case - should match
+        results = search_entities("UseRaUtH", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["name"] == "UserAuthService"
+
+    def test_search_entities_no_results(self, test_workspace: str) -> None:
+        """Test search with no matching results."""
+        # Create entities
+        create_entity(
+            entity_type="file",
+            name="Login Controller",
+            identifier="/src/auth/login.py",
+            workspace_path=test_workspace,
+        )
+        create_entity(
+            entity_type="other",
+            name="ABC Vendor",
+            identifier="ABC-INS",
+            workspace_path=test_workspace,
+        )
+
+        # Search for non-existent term
+        results = search_entities("nonexistent", workspace_path=test_workspace)
+        assert results == []
+
+        # Search with type filter that has no matches
+        results = search_entities("login", entity_type="other", workspace_path=test_workspace)
+        assert results == []
+
+    def test_search_entities_excludes_deleted(self, test_workspace: str) -> None:
+        """Test that soft-deleted entities are excluded from search results."""
+        # Create entities
+        entity1 = create_entity(
+            entity_type="file",
+            name="Active Controller",
+            identifier="/src/active.py",
+            workspace_path=test_workspace,
+        )
+        entity2 = create_entity(
+            entity_type="file",
+            name="Deleted Controller",
+            identifier="/src/deleted.py",
+            workspace_path=test_workspace,
+        )
+
+        # Delete one entity
+        delete_entity(entity2["id"], test_workspace)
+
+        # Search for "controller" - should only return active entity
+        results = search_entities("controller", workspace_path=test_workspace)
+        assert len(results) == 1
+        assert results[0]["id"] == entity1["id"]
+        assert results[0]["name"] == "Active Controller"
+
+    def test_search_entities_ordered_by_created_at_desc(self, test_workspace: str) -> None:
+        """Test entities are returned in reverse chronological order."""
+        e1 = create_entity(
+            entity_type="file",
+            name="First Vendor File",
+            identifier="/vendor1.py",
+            workspace_path=test_workspace,
+        )
+        e2 = create_entity(
+            entity_type="file",
+            name="Second Vendor File",
+            identifier="/vendor2.py",
+            workspace_path=test_workspace,
+        )
+        e3 = create_entity(
+            entity_type="file",
+            name="Third Vendor File",
+            identifier="/vendor3.py",
+            workspace_path=test_workspace,
+        )
+
+        # Search for "vendor" - should return all in reverse order
+        results = search_entities("vendor", workspace_path=test_workspace)
+        assert len(results) == 3
+
+        # Should be in reverse chronological order (newest first)
+        assert results[0]["id"] == e3["id"]
+        assert results[1]["id"] == e2["id"]
+        assert results[2]["id"] == e1["id"]
+
+    def test_search_entities_matches_name_or_identifier(self, test_workspace: str) -> None:
+        """Test search matches entities on either name OR identifier."""
+        # Create entity where search term appears in both
+        create_entity(
+            entity_type="file",
+            name="Vendor Module",
+            identifier="/src/vendor/processor.py",
+            workspace_path=test_workspace,
+        )
+        # Create entity where term only in name
+        create_entity(
+            entity_type="other",
+            name="Vendor ABC",
+            identifier="ABC-123",
+            workspace_path=test_workspace,
+        )
+        # Create entity where term only in identifier
+        create_entity(
+            entity_type="other",
+            name="Insurance Provider",
+            identifier="VENDOR-XYZ",
+            workspace_path=test_workspace,
+        )
+
+        # Search for "vendor" - should match all three
+        results = search_entities("vendor", workspace_path=test_workspace)
+        assert len(results) == 3
+
+        names = {r["name"] for r in results}
+        assert names == {"Vendor Module", "Vendor ABC", "Insurance Provider"}
+
+    def test_search_entities_empty_workspace(self, test_workspace: str) -> None:
+        """Test search on empty workspace returns empty list."""
+        results = search_entities("anything", workspace_path=test_workspace)
+        assert results == []
