@@ -29,22 +29,18 @@ allowed-tools: [Read, Write, Bash]
 **Check for uncommitted work:**
 
 ```bash
-# Check git status
 git status --short
-
-# Count uncommitted changes
-echo ""
-echo "Analyzing uncommitted changes..."
-
-# Check for uncommitted subagent reports
-SUBAGENT_STATUS=$(git status --short | grep "docs/subagent-reports" || echo "")
-if [ -n "$SUBAGENT_STATUS" ]; then
-    echo "🤖 Found uncommitted subagent reports:"
-    echo "$SUBAGENT_STATUS"
-else
-    echo "✅ No uncommitted subagent reports"
-fi
 ```
+
+**Check specifically for uncommitted subagent reports:**
+
+```bash
+git status --short docs/subagent-reports/ 2>/dev/null
+```
+
+Interpret the results:
+- If output is empty → No uncommitted subagent reports
+- If output contains files → List them with "🤖 Found uncommitted subagent reports:"
 
 ---
 
