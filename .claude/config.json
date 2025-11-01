@@ -2,7 +2,12 @@
   "mcpServers": {
     "task-mcp": {
       "command": "uv",
-      "args": ["run", "task-mcp"]
+      "args": [
+        "--directory",
+        "/Users/cliffclarke/Claude_Code/task-mcp",
+        "run",
+        "task-mcp"
+      ]
     }
   }
 }
