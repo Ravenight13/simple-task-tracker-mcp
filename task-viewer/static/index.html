@@ -489,7 +489,14 @@
               </div>
             </div>
 
-            <!-- Row 2: Status + Priority Badges -->
+            <!-- Row 2: Description (truncated) -->
+            <p
+              x-show="task?.description"
+              class="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
+              x-text="task?.description"
+            ></p>
+
+            <!-- Row 3: Status + Priority Badges -->
             <div class="mt-3 flex items-center gap-2">
               <!-- Status Badge -->
               <span
@@ -515,7 +522,7 @@
               ></span>
             </div>
 
-            <!-- Row 3: Position, Parent Task, Dependencies, Blocker Badges (Grouped) -->
+            <!-- Row 4: Position, Parent Task, Dependencies, Blocker Badges (Grouped) -->
             <div class="mt-2 flex flex-wrap items-center gap-2">
               <!-- Position Number Badge -->
               <div class="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-medium">
@@ -568,13 +575,7 @@
               </div>
             </div>
 
-            <!-- Row 4: Description (truncated) -->
-            <p
-              class="mt-3 text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
-              x-text="task?.description || 'No description provided'"
-            ></p>
-
-            <!-- Subtasks Indicator -->
+            <!-- Row 5: Subtasks Indicator -->
             <div
               x-show="countSubtasks(task) > 0"
               class="mt-2"
