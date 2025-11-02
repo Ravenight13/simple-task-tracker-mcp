@@ -173,3 +173,40 @@ def register_project(workspace_path: str) -> str:
 
     finally:
         conn.close()
+
+
+def get_project_id(workspace_path: str) -> str:
+    """
+    Get project hash ID for a workspace path.
+
+    Args:
+        workspace_path: Absolute path to project workspace
+
+    Returns:
+        Project hash ID (8 characters)
+    """
+    workspace_path = ensure_absolute_path(workspace_path)
+    return hash_workspace_path(workspace_path)
+
+
+def record_tool_usage(tool_name: str, workspace_id: str, success: bool = True) -> None:
+    """
+    Record MCP tool usage in master.db.
+
+    Args:
+        tool_name: Name of the MCP tool called
+        workspace_id: Project hash ID from projects table
+        success: Whether the tool call succeeded (default: True)
+    """
+    conn = get_master_connection()
+    try:
+        conn.execute("""
+            INSERT INTO tool_usage (tool_name, workspace_id, success)
+            VALUES (?, ?, ?)
+        """, (tool_name, workspace_id, success))
+        conn.commit()
+    except Exception:
+        # Silently fail - usage tracking shouldn't break tools
+        pass
+    finally:
+        conn.close()

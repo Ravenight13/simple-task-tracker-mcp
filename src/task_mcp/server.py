@@ -1,5 +1,6 @@
 """FastMCP server for task tracking with SQLite backend."""
 
+from functools import wraps
 from typing import Any
 
 from fastmcp import Context, FastMCP
@@ -8,6 +9,38 @@ from fastmcp import Context, FastMCP
 mcp = FastMCP("Task Tracker")
 
 
+def track_usage(func):
+    """Decorator to track MCP tool usage."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        from .master import get_project_id, record_tool_usage
+        from .utils import resolve_workspace
+
+        tool_name = func.__name__
+        workspace_path = kwargs.get('workspace_path')
+        success = True
+
+        try:
+            result = func(*args, **kwargs)
+            return result
+        except Exception as e:
+            success = False
+            raise
+        finally:
+            # Track usage if workspace_path provided
+            if workspace_path:
+                try:
+                    workspace = resolve_workspace(workspace_path)
+                    workspace_id = get_project_id(workspace)
+                    record_tool_usage(tool_name, workspace_id, success)
+                except Exception:
+                    # Silently fail - don't break tool execution
+                    pass
+
+    return wrapper
+
+
+@track_usage
 @mcp.tool()
 def list_tasks(
     workspace_path: str,
@@ -72,6 +105,7 @@ def list_tasks(
         conn.close()
 
 
+@track_usage
 @mcp.tool()
 def create_task(
     title: str,
@@ -189,6 +223,7 @@ def create_task(
         conn.close()
 
 
+@track_usage
 @mcp.tool()
 def get_task(
     task_id: int,
