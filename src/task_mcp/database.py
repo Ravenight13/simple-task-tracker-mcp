@@ -62,6 +62,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     - updated_at TIMESTAMP
     - completed_at TIMESTAMP
     - deleted_at TIMESTAMP
+    - workspace_metadata TEXT (JSON with workspace context, v0.4.0)
 
     Entities Table (v0.3.0):
     - id INTEGER PRIMARY KEY AUTOINCREMENT
@@ -188,6 +189,16 @@ def init_schema(conn: sqlite3.Connection) -> None:
     if 'updated_by' not in columns:
         conn.execute("""
             ALTER TABLE entities ADD COLUMN updated_by TEXT
+        """)
+        conn.commit()
+
+    # Migration: Add workspace_metadata column to tasks if it doesn't exist (v0.4.0)
+    cursor.execute("PRAGMA table_info(tasks)")
+    task_columns = {row[1] for row in cursor.fetchall()}
+
+    if 'workspace_metadata' not in task_columns:
+        conn.execute("""
+            ALTER TABLE tasks ADD COLUMN workspace_metadata TEXT
         """)
         conn.commit()
 
