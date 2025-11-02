@@ -112,7 +112,7 @@ def create_task(
     from .database import get_connection
     from .master import register_project
     from .models import TaskCreate
-    from .utils import resolve_workspace, validate_description_length
+    from .utils import resolve_workspace, validate_description_length, get_workspace_metadata
 
     # Auto-register project and update last_accessed
     workspace = resolve_workspace(workspace_path)
@@ -121,6 +121,10 @@ def create_task(
     # Auto-capture session ID if created_by not provided and context available
     if created_by is None and ctx is not None:
         created_by = ctx.session_id
+
+    # Capture workspace metadata for audit trail
+    workspace_metadata_dict = get_workspace_metadata(workspace_path)
+    workspace_metadata_json = json.dumps(workspace_metadata_dict)
 
     # Validate description length
     if description:
@@ -147,14 +151,14 @@ def create_task(
     now = datetime.now().isoformat()
 
     try:
-        # Insert task with explicit timestamps
+        # Insert task with explicit timestamps and workspace metadata
         cursor.execute(
             """
             INSERT INTO tasks (
                 title, description, status, priority, parent_task_id,
                 depends_on, tags, blocker_reason, file_references, created_by,
-                created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_at, updated_at, workspace_metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 task_data.title,
@@ -169,6 +173,7 @@ def create_task(
                 task_data.created_by,
                 now,  # created_at
                 now,  # updated_at
+                workspace_metadata_json,  # workspace_metadata
             ),
         )
 
@@ -1731,6 +1736,145 @@ def search_entities(
         rows = cursor.fetchall()
 
         return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def validate_task_workspace(
+    task_id: int,
+    workspace_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Validate if task workspace metadata matches current workspace.
+
+    Use this tool to check if a task was created in a different workspace,
+    which may indicate cross-workspace contamination or migration.
+
+    Args:
+        task_id: Task ID to validate
+        workspace_path: Optional workspace path (auto-detected)
+
+    Returns:
+        Validation result with details:
+        - valid: bool - True if workspace matches or task has no metadata
+        - task_id: int - Task ID being validated
+        - current_workspace: str - Current resolved workspace path
+        - task_workspace: str | None - Workspace from task metadata
+        - workspace_match: bool - True if workspaces match exactly
+        - warnings: list[str] - List of warning messages
+        - metadata: dict | None - Full workspace metadata from task
+
+    Raises:
+        ValueError: If task not found or deleted
+
+    Examples:
+        >>> validate_task_workspace(task_id=42)
+        {
+            "valid": True,
+            "task_id": 42,
+            "current_workspace": "/Users/user/projects/task-mcp",
+            "task_workspace": "/Users/user/projects/task-mcp",
+            "workspace_match": True,
+            "warnings": [],
+            "metadata": {
+                "workspace_path": "/Users/user/projects/task-mcp",
+                "git_root": "/Users/user/projects/task-mcp",
+                "cwd_at_creation": "/Users/user/projects/task-mcp/src",
+                "project_name": "task-mcp"
+            }
+        }
+
+        >>> validate_task_workspace(task_id=99)
+        {
+            "valid": False,
+            "task_id": 99,
+            "current_workspace": "/Users/user/projects/other-project",
+            "task_workspace": "/Users/user/projects/task-mcp",
+            "workspace_match": False,
+            "warnings": [
+                "Task created in different workspace: /Users/user/projects/task-mcp",
+                "Current workspace: /Users/user/projects/other-project",
+                "This task may not be relevant to current project"
+            ],
+            "metadata": {...}
+        }
+    """
+    import json
+
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    current_workspace = resolve_workspace(workspace_path)
+    register_project(current_workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Fetch task
+        cursor.execute(
+            "SELECT id, workspace_metadata FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,)
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(f"Task {task_id} not found or has been deleted")
+
+        task = dict(row)
+        workspace_metadata_json = task.get("workspace_metadata")
+
+        # If no metadata, assume valid (backward compatibility)
+        if not workspace_metadata_json:
+            return {
+                "valid": True,
+                "task_id": task_id,
+                "current_workspace": current_workspace,
+                "task_workspace": None,
+                "workspace_match": True,
+                "warnings": ["Task created before workspace metadata tracking (legacy task)"],
+                "metadata": None
+            }
+
+        # Parse metadata
+        try:
+            metadata = json.loads(workspace_metadata_json)
+        except json.JSONDecodeError:
+            return {
+                "valid": True,  # Assume valid if can't parse
+                "task_id": task_id,
+                "current_workspace": current_workspace,
+                "task_workspace": None,
+                "workspace_match": True,
+                "warnings": ["Invalid workspace metadata JSON (corrupted data)"],
+                "metadata": None
+            }
+
+        task_workspace = metadata.get("workspace_path")
+
+        # Compare workspaces
+        workspace_match = (task_workspace == current_workspace)
+
+        # Build warnings
+        warnings = []
+        if not workspace_match:
+            warnings.append(f"Task created in different workspace: {task_workspace}")
+            warnings.append(f"Current workspace: {current_workspace}")
+            warnings.append("This task may not be relevant to current project")
+
+        return {
+            "valid": workspace_match,
+            "task_id": task_id,
+            "current_workspace": current_workspace,
+            "task_workspace": task_workspace,
+            "workspace_match": workspace_match,
+            "warnings": warnings,
+            "metadata": metadata
+        }
+
     finally:
         conn.close()
 
