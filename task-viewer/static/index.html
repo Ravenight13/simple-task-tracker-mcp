@@ -595,7 +595,7 @@
               class="mt-2"
             >
               <button
-                @click="toggleSubtasks(task, $event)"
+                @click.stop="toggleSubtasks(task, $event)"
                 class="flex items-center gap-1 px-2 py-1 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded text-xs font-medium border border-purple-200 dark:border-purple-700 transition-colors"
                 :class="{ 'bg-purple-100 dark:bg-purple-900/50': expandedSubtasks[task.id] }"
               >
@@ -1295,8 +1295,13 @@ Created: ${this.formatDate(task.created_at)}`;
           }
 
           if (this.activeSmartFilter === 'parent-tasks') {
-            // Only show tasks that have no parent (parent_task_id is null/undefined)
-            filtered = filtered.filter(t => !t?.parent_task_id);
+            // Show tasks that ARE parents (have at least one child task)
+            const allTasks = this.tasks || [];
+            filtered = filtered.filter(t => {
+              // Count children for this task
+              const childCount = allTasks.filter(child => child?.parent_task_id === t?.id).length;
+              return childCount > 0;
+            });
           }
 
           // Search filter
@@ -1430,7 +1435,7 @@ Created: ${this.formatDate(task.created_at)}`;
 
         // Hierarchy Methods
         async toggleSubtasks(task, event) {
-          event.stopPropagation();
+          // Note: event.stopPropagation() not needed because we use @click.stop in the template
           const taskId = task.id;
 
           // Toggle expansion state
