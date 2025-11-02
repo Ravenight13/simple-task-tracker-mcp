@@ -272,32 +272,53 @@
           <div class="relative" x-data="{ open: false }">
             <button
               @click="open = !open"
-              class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors flex items-center gap-2"
               :aria-expanded="open"
             >
-              Sort
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+              <span>Sort</span>
+              <svg class="h-4 w-4" :class="{ 'rotate-180': sortOrder === 'desc' }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+              </svg>
             </button>
 
             <div
               x-show="open"
               @click.away="open = false"
               x-transition
-              class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10"
+              class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10"
             >
+              <div class="p-2 border-b border-gray-200 dark:border-gray-600">
+                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase px-2 py-1">Sort By</p>
+              </div>
               <template x-for="option in [
-                { value: 'created_desc', label: 'Newest first' },
-                { value: 'created_asc', label: 'Oldest first' },
-                { value: 'priority_desc', label: 'Priority (high to low)' },
-                { value: 'title_asc', label: 'Title (A-Z)' }
+                { value: 'priority', label: 'Priority' },
+                { value: 'status', label: 'Status' },
+                { value: 'created', label: 'Creation Date' },
+                { value: 'title', label: 'Title' }
               ]" :key="option.value">
                 <button
-                  @click="sortBy = option.value; applyFilters(); open = false"
-                  class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors"
-                  :class="{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }"
+                  @click="setSortBy(option.value); open = false"
+                  class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors flex items-center justify-between"
+                  :class="{ 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200': sortBy === option.value + '_' + sortOrder }"
                 >
                   <span x-text="option.label"></span>
+                  <svg x-show="sortBy === option.value + '_' + sortOrder" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
                 </button>
               </template>
+              <div class="p-2 border-t border-gray-200 dark:border-gray-600">
+                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase px-2 py-1">Order</p>
+              </div>
+              <button
+                @click="toggleSortOrder(); open = false"
+                class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors"
+              >
+                <span x-text="sortOrder === 'desc' ? '↓ Descending' : '↑ Ascending'"></span>
+              </button>
             </div>
           </div>
         </div>
@@ -367,17 +388,22 @@
         x-show="!loading && !error && (filteredTasks || []).length > 0"
         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
-        <template x-for="task in filteredTasks" :key="task.id">
+        <template x-for="(task, index) in filteredTasks" :key="task.id">
           <div
             @click="openTaskDetail(task)"
-            class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600"
+            class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 relative"
             role="button"
             tabindex="0"
             @keydown.enter="openTaskDetail(task)"
             @keydown.space.prevent="openTaskDetail(task)"
           >
+            <!-- Position Number Badge -->
+            <div class="absolute top-2 left-2 px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-medium">
+              <span x-text="'#' + (index + 1)"></span>
+            </div>
+
             <!-- Header: Title + Status Badge + Blocker Indicator -->
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start justify-between gap-3 pl-10">
               <h3 class="flex-1 font-semibold text-gray-900 dark:text-gray-100 leading-snug" x-text="task?.title || 'Untitled'"></h3>
 
               <div class="flex items-center gap-2 flex-shrink-0">
@@ -744,7 +770,9 @@
         statusFilter: 'all',
         priorityFilter: 'all',
         searchQuery: '',
-        sortBy: 'created_desc',
+        sortBy: localStorage.getItem('taskSortBy') || 'priority_desc',
+        sortOrder: localStorage.getItem('taskSortOrder') || 'desc',
+        activeSmartFilter: null,
 
         // UI State
         loading: false,
@@ -945,24 +973,58 @@
           }
 
           // Sort
-          filtered.sort((a, b) => {
-            switch (this.sortBy) {
-              case 'created_desc':
-                return new Date(b?.created_at || 0) - new Date(a?.created_at || 0);
-              case 'created_asc':
-                return new Date(a?.created_at || 0) - new Date(b?.created_at || 0);
-              case 'priority_desc':
-                const priorityOrder = { high: 3, medium: 2, low: 1 };
-                return (priorityOrder[b?.priority] || 0) - (priorityOrder[a?.priority] || 0);
-              case 'title_asc':
-                return (a?.title || '').localeCompare(b?.title || '');
-              default:
-                return 0;
-            }
-          });
+          this.sortTasks(filtered);
 
           this.filteredTasks = filtered;
           this.updateStatusCounts();
+        },
+
+        sortTasks(tasks) {
+          const priorityOrder = { high: 3, medium: 2, low: 1 };
+          const statusOrder = { todo: 1, in_progress: 2, blocked: 3, done: 4 };
+
+          tasks.sort((a, b) => {
+            let result = 0;
+
+            // Extract sort type from sortBy (e.g., 'priority_desc' -> 'priority')
+            const sortType = this.sortBy.split('_')[0];
+
+            switch (sortType) {
+              case 'priority':
+                result = (priorityOrder[a?.priority] || 0) - (priorityOrder[b?.priority] || 0);
+                break;
+              case 'status':
+                result = (statusOrder[a?.status] || 0) - (statusOrder[b?.status] || 0);
+                break;
+              case 'created':
+                result = new Date(a?.created_at || 0) - new Date(b?.created_at || 0);
+                break;
+              case 'title':
+                result = (a?.title || '').localeCompare(b?.title || '');
+                break;
+              default:
+                return 0;
+            }
+
+            // Apply sort order (asc/desc)
+            return this.sortOrder === 'desc' ? -result : result;
+          });
+        },
+
+        setSortBy(sortType) {
+          this.sortBy = sortType + '_' + this.sortOrder;
+          localStorage.setItem('taskSortBy', this.sortBy);
+          this.applyFilters();
+        },
+
+        toggleSortOrder() {
+          this.sortOrder = this.sortOrder === 'desc' ? 'asc' : 'desc';
+          localStorage.setItem('taskSortOrder', this.sortOrder);
+          // Update sortBy to include new order
+          const sortType = this.sortBy.split('_')[0];
+          this.sortBy = sortType + '_' + this.sortOrder;
+          localStorage.setItem('taskSortBy', this.sortBy);
+          this.applyFilters();
         },
 
         // UI Methods
