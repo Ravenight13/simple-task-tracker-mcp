@@ -190,6 +190,77 @@ with tempfile.TemporaryDirectory() as tmpdir:
     pass
 ```
 
+## Task Grouping and Organization
+
+### Project Tags Pattern
+
+Task MCP uses a **tag-based grouping system** to organize related tasks into projects or feature groups. This approach leverages the existing tag infrastructure without requiring database changes.
+
+**Tag Format:**
+- Use prefix `project:` followed by project/feature name
+- Example: `project:workspace-metadata`, `project:entity-viewer`, `project:auth-refactor`
+- Tags are normalized to lowercase with single spaces
+- Multiple project tags can coexist on the same task
+
+**Benefits:**
+- No database schema changes required
+- Works immediately with existing UI tag filters
+- Backward compatible (tasks without project tags unaffected)
+- Flexible grouping (tasks can belong to multiple projects)
+- Fast to implement and use
+
+**Usage Examples:**
+
+```python
+# Create tasks with project grouping
+create_task(
+    title="Implement user authentication",
+    tags="backend security project:auth-refactor"
+)
+
+create_task(
+    title="Add login UI",
+    tags="frontend ui project:auth-refactor"
+)
+
+# Filter tasks by project
+tasks = list_tasks(tags="project:auth-refactor")
+
+# Update existing task to add to project
+update_task(
+    task_id=42,
+    tags="api backend project:workspace-metadata"
+)
+```
+
+**Task-Viewer Integration:**
+- Filter by project tag using the tag dropdown
+- Project tags appear alongside other tags
+- Tag count shows number of tasks in each project
+- Supports multiple tag filters (combine project + status tags)
+
+**Best Practices:**
+1. Use descriptive project names (e.g., `project:entity-viewer` not `project:ev`)
+2. Apply project tags when creating related tasks
+3. Use consistent naming conventions within a workspace
+4. Combine project tags with functional tags (e.g., `project:auth backend testing`)
+5. Document active projects in workspace README or docs
+
+**Example: Workspace Metadata Feature (Tasks #70-76)**
+```bash
+# All tasks tagged with: project:workspace-metadata
+Task #70: Create audit.py module → tags: "audit strategy2 project:workspace-metadata"
+Task #71: Integrate audit tool → tags: "audit mcp-tool project:workspace-metadata"
+Task #72: Create test suite → tags: "testing audit project:workspace-metadata"
+Task #73: Database migration → tags: "database migration project:workspace-metadata"
+Task #74: Workspace utilities → tags: "utilities project:workspace-metadata"
+Task #75: Update create_task → tags: "mcp-tools project:workspace-metadata"
+Task #76: Validate workspace → tags: "mcp-tools validation project:workspace-metadata"
+
+# Filter to see all related tasks
+list_tasks(tags="project:workspace-metadata")  # Returns 7 tasks
+```
+
 ## Entity System
 
 ### Overview
