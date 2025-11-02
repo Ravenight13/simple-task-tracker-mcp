@@ -1203,6 +1203,7 @@
           try {
             const params = new URLSearchParams({
               project_id: this.currentProject.id,
+              limit: '100',  // Increase limit to load more tasks (max is 100)
             });
 
             const response = await fetch(`${API_CONFIG.baseUrl}/tasks?${params}`, {
@@ -1295,6 +1296,7 @@
                 // Fetch tasks
                 const params = new URLSearchParams({
                   project_id: this.currentProject.id,
+                  limit: '100',  // Increase limit to load more tasks (max is 100)
                 });
 
                 const tasksResponse = await fetch(`${API_CONFIG.baseUrl}/tasks?${params}`, {
@@ -1649,7 +1651,13 @@ Created: ${this.formatDate(task.created_at)}`;
         },
 
         countSubtasks(task) {
-          // Count direct children in tasks array
+          // If we've already loaded subtasks for this task via tree endpoint, use that count
+          if (this.subtasksCache[task.id]) {
+            return this.subtasksCache[task.id].length;
+          }
+
+          // Otherwise, count direct children in tasks array
+          // Note: This may be inaccurate if pagination limit is reached
           return this.tasks.filter(t => t.parent_task_id === task.id).length;
         },
 
