@@ -134,7 +134,7 @@
                 :aria-expanded="open"
                 aria-haspopup="listbox"
               >
-                <span x-text="currentProject?.friendly_name || currentProject?.workspace_path?.split('/').pop() || 'Select Project'" class="block truncate"></span>
+                <span x-text="currentProject?.friendly_name || (currentProject?.workspace_path ? currentProject.workspace_path.split('/').pop() : 'Select Project')" class="block truncate"></span>
                 <svg class="absolute right-3 top-3 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                 </svg>
@@ -160,8 +160,8 @@
                     role="option"
                     :aria-selected="currentProject?.id === project.id"
                   >
-                    <div class="font-medium" x-text="project.friendly_name || project.workspace_path?.split('/').pop()"></div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="project.workspace_path"></div>
+                    <div class="font-medium" x-text="project?.friendly_name || (project?.workspace_path ? project.workspace_path.split('/').pop() : 'Unknown')"></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="project?.workspace_path || ''"></div>
                   </button>
                 </template>
               </div>
@@ -204,7 +204,7 @@
               <span x-text="status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>
               <span
                 class="ml-1 opacity-75"
-                x-text="`(${status === 'all' ? statusCounts.total : (statusCounts[status] || 0)})`"
+                x-text="`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`"
               ></span>
             </button>
           </template>
@@ -297,7 +297,7 @@
         aria-atomic="true"
         class="sr-only"
       >
-        <span x-text="`Showing ${filteredTasks.length} of ${tasks.length} tasks`"></span>
+        <span x-text="`Showing ${(filteredTasks || []).length} of ${(tasks || []).length} tasks`"></span>
       </div>
 
       <!-- Loading State -->
@@ -331,7 +331,7 @@
       </div>
 
       <!-- Empty State -->
-      <div x-show="!loading && !error && filteredTasks.length === 0" class="text-center py-12">
+      <div x-show="!loading && !error && (filteredTasks || []).length === 0" class="text-center py-12">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
@@ -348,7 +348,7 @@
 
       <!-- Task Cards Grid -->
       <div
-        x-show="!loading && !error && filteredTasks.length > 0"
+        x-show="!loading && !error && (filteredTasks || []).length > 0"
         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
         <template x-for="task in filteredTasks" :key="task.id">
@@ -362,24 +362,24 @@
           >
             <!-- Header: Title + Status Badge -->
             <div class="flex items-start justify-between gap-3">
-              <h3 class="flex-1 font-semibold text-gray-900 dark:text-gray-100 leading-snug" x-text="task.title"></h3>
+              <h3 class="flex-1 font-semibold text-gray-900 dark:text-gray-100 leading-snug" x-text="task?.title || 'Untitled'"></h3>
 
               <span
                 class="flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium"
                 :class="{
-                  'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': task.status === 'todo',
-                  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': task.status === 'in_progress',
-                  'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': task.status === 'done',
-                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task.status === 'blocked'
+                  'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': task?.status === 'todo',
+                  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': task?.status === 'in_progress',
+                  'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': task?.status === 'done',
+                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.status === 'blocked'
                 }"
-                x-text="task.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())"
+                x-text="task?.status ? task.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
               ></span>
             </div>
 
             <!-- Description (truncated) -->
             <p
               class="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
-              x-text="task.description || 'No description provided'"
+              x-text="task?.description || 'No description provided'"
             ></p>
 
             <!-- Footer: Priority + Metadata -->
@@ -389,23 +389,23 @@
                 <span
                   class="px-2 py-0.5 rounded text-xs font-medium"
                   :class="{
-                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': task.priority === 'low',
-                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': task.priority === 'medium',
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task.priority === 'high'
+                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': task?.priority === 'low',
+                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': task?.priority === 'medium',
+                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.priority === 'high'
                   }"
-                  x-text="task.priority.charAt(0).toUpperCase() + task.priority.slice(1)"
+                  x-text="task?.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'N/A'"
                 ></span>
 
                 <!-- Tags (if present) -->
                 <span
-                  x-show="task.tags"
+                  x-show="task?.tags"
                   class="text-xs text-gray-500 dark:text-gray-400 truncate"
-                  x-text="task.tags?.split(' ')[0]"
+                  x-text="task?.tags?.split(' ')[0] || ''"
                 ></span>
               </div>
 
               <!-- Created date -->
-              <span class="text-xs text-gray-500 dark:text-gray-400" x-text="formatRelativeTime(task.created_at)"></span>
+              <span class="text-xs text-gray-500 dark:text-gray-400" x-text="formatRelativeTime(task?.created_at)"></span>
             </div>
           </div>
         </template>
@@ -426,7 +426,7 @@
       @click.self="closeModal()"
       role="dialog"
       aria-modal="true"
-      :aria-labelledby="selectedTask ? 'modal-title-' + selectedTask.id : ''"
+      :aria-labelledby="selectedTask ? 'modal-title-' + (selectedTask?.id || 'task') : 'modal-title-task'"
     >
       <!-- Backdrop -->
       <div class="fixed inset-0 bg-black bg-opacity-50"></div>
@@ -460,79 +460,79 @@
           <template x-if="selectedTask">
             <div>
               <h2
-                :id="'modal-title-' + selectedTask.id"
+                :id="'modal-title-' + (selectedTask?.id || 'task')"
                 class="text-2xl font-bold text-gray-900 dark:text-gray-100 pr-8"
-                x-text="selectedTask.title"
+                x-text="selectedTask?.title || 'Untitled'"
               ></h2>
 
               <div class="mt-4 flex gap-2 flex-wrap">
                 <span
                   class="px-3 py-1 text-sm font-medium rounded-full"
                   :class="{
-                    'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': selectedTask.status === 'todo',
-                    'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': selectedTask.status === 'in_progress',
-                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': selectedTask.status === 'done',
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': selectedTask.status === 'blocked'
+                    'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': selectedTask?.status === 'todo',
+                    'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': selectedTask?.status === 'in_progress',
+                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': selectedTask?.status === 'done',
+                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': selectedTask?.status === 'blocked'
                   }"
-                  x-text="selectedTask.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())"
+                  x-text="selectedTask?.status ? selectedTask.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
                 ></span>
 
                 <span
                   class="px-3 py-1 text-sm font-medium rounded"
                   :class="{
-                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': selectedTask.priority === 'low',
-                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': selectedTask.priority === 'medium',
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': selectedTask.priority === 'high'
+                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': selectedTask?.priority === 'low',
+                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': selectedTask?.priority === 'medium',
+                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': selectedTask?.priority === 'high'
                   }"
-                  x-text="selectedTask.priority.charAt(0).toUpperCase() + selectedTask.priority.slice(1)"
+                  x-text="selectedTask?.priority ? selectedTask.priority.charAt(0).toUpperCase() + selectedTask.priority.slice(1) : 'N/A'"
                 ></span>
               </div>
 
-              <div class="mt-6" x-show="selectedTask.description">
+              <div class="mt-6" x-show="selectedTask?.description">
                 <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Description</h3>
-                <p class="mt-2 text-gray-600 dark:text-gray-400 whitespace-pre-wrap" x-text="selectedTask.description || 'No description'"></p>
+                <p class="mt-2 text-gray-600 dark:text-gray-400 whitespace-pre-wrap" x-text="selectedTask?.description || 'No description'"></p>
               </div>
 
               <!-- Blocker reason (if blocked) -->
-              <div class="mt-6" x-show="selectedTask.status === 'blocked' && selectedTask.blocker_reason">
+              <div class="mt-6" x-show="selectedTask?.status === 'blocked' && selectedTask?.blocker_reason">
                 <h3 class="text-sm font-semibold text-red-700 dark:text-red-300">Blocker Reason</h3>
-                <p class="mt-2 text-red-600 dark:text-red-400" x-text="selectedTask.blocker_reason"></p>
+                <p class="mt-2 text-red-600 dark:text-red-400" x-text="selectedTask?.blocker_reason || ''"></p>
               </div>
 
               <!-- Metadata grid -->
               <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span class="font-semibold text-gray-700 dark:text-gray-300">Created:</span>
-                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask.created_at)"></span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask?.created_at)"></span>
                 </div>
 
-                <div x-show="selectedTask.updated_at !== selectedTask.created_at">
+                <div x-show="selectedTask?.updated_at && selectedTask?.updated_at !== selectedTask?.created_at">
                   <span class="font-semibold text-gray-700 dark:text-gray-300">Updated:</span>
-                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask.updated_at)"></span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask?.updated_at)"></span>
                 </div>
 
-                <div x-show="selectedTask.completed_at">
+                <div x-show="selectedTask?.completed_at">
                   <span class="font-semibold text-gray-700 dark:text-gray-300">Completed:</span>
-                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask.completed_at)"></span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask?.completed_at)"></span>
                 </div>
 
-                <div x-show="selectedTask.tags">
+                <div x-show="selectedTask?.tags">
                   <span class="font-semibold text-gray-700 dark:text-gray-300">Tags:</span>
-                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="selectedTask.tags"></span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="selectedTask?.tags || ''"></span>
                 </div>
 
-                <div x-show="selectedTask.parent_task_id" class="sm:col-span-2">
+                <div x-show="selectedTask?.parent_task_id" class="sm:col-span-2">
                   <span class="font-semibold text-gray-700 dark:text-gray-300">Parent Task:</span>
-                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="'#' + selectedTask.parent_task_id"></span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="'#' + (selectedTask?.parent_task_id || '')"></span>
                 </div>
               </div>
 
               <!-- File references -->
-              <div class="mt-6" x-show="selectedTask.file_references && JSON.parse(selectedTask.file_references || '[]').length > 0">
+              <div class="mt-6" x-show="selectedTask?.file_references && (() => { try { return JSON.parse(selectedTask.file_references || '[]').length > 0; } catch { return false; } })()">
                 <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">File References</h3>
                 <ul class="mt-2 space-y-1">
-                  <template x-for="file in JSON.parse(selectedTask.file_references || '[]')" :key="file">
-                    <li class="text-sm text-blue-600 dark:text-blue-400 font-mono" x-text="file"></li>
+                  <template x-for="file in (() => { try { return JSON.parse(selectedTask?.file_references || '[]'); } catch { return []; } })()" :key="file">
+                    <li class="text-sm text-blue-600 dark:text-blue-400 font-mono" x-text="file || ''"></li>
                   </template>
                 </ul>
               </div>
@@ -622,6 +622,13 @@
         tasks: [],
         filteredTasks: [],
         selectedTask: null,
+        statusCounts: {
+          total: 0,
+          todo: 0,
+          in_progress: 0,
+          done: 0,
+          blocked: 0
+        },
 
         // Filters
         statusFilter: 'all',
@@ -677,7 +684,12 @@
         },
 
         async loadTasks() {
-          if (!this.currentProject) return;
+          if (!this.currentProject) {
+            this.tasks = [];
+            this.filteredTasks = [];
+            this.updateStatusCounts();
+            return;
+          }
 
           this.loading = true;
           this.error = null;
@@ -700,6 +712,9 @@
             this.applyFilters();
           } catch (err) {
             this.error = err.message;
+            this.tasks = [];
+            this.filteredTasks = [];
+            this.updateStatusCounts();
             console.error('Error loading tasks:', err);
           } finally {
             this.loading = false;
@@ -713,25 +728,25 @@
 
         // Filter Methods (client-side for instant response)
         applyFilters() {
-          let filtered = [...this.tasks];
+          let filtered = [...(this.tasks || [])];
 
           // Status filter
           if (this.statusFilter !== 'all') {
-            filtered = filtered.filter(t => t.status === this.statusFilter);
+            filtered = filtered.filter(t => t?.status === this.statusFilter);
           }
 
           // Priority filter
           if (this.priorityFilter !== 'all') {
-            filtered = filtered.filter(t => t.priority === this.priorityFilter);
+            filtered = filtered.filter(t => t?.priority === this.priorityFilter);
           }
 
           // Search filter
-          if (this.searchQuery.trim()) {
+          if (this.searchQuery && this.searchQuery.trim()) {
             const query = this.searchQuery.toLowerCase();
             filtered = filtered.filter(t =>
-              t.title.toLowerCase().includes(query) ||
-              (t.description && t.description.toLowerCase().includes(query)) ||
-              (t.tags && t.tags.toLowerCase().includes(query))
+              (t?.title && t.title.toLowerCase().includes(query)) ||
+              (t?.description && t.description.toLowerCase().includes(query)) ||
+              (t?.tags && t.tags.toLowerCase().includes(query))
             );
           }
 
@@ -739,20 +754,21 @@
           filtered.sort((a, b) => {
             switch (this.sortBy) {
               case 'created_desc':
-                return new Date(b.created_at) - new Date(a.created_at);
+                return new Date(b?.created_at || 0) - new Date(a?.created_at || 0);
               case 'created_asc':
-                return new Date(a.created_at) - new Date(b.created_at);
+                return new Date(a?.created_at || 0) - new Date(b?.created_at || 0);
               case 'priority_desc':
                 const priorityOrder = { high: 3, medium: 2, low: 1 };
-                return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+                return (priorityOrder[b?.priority] || 0) - (priorityOrder[a?.priority] || 0);
               case 'title_asc':
-                return a.title.localeCompare(b.title);
+                return (a?.title || '').localeCompare(b?.title || '');
               default:
                 return 0;
             }
           });
 
           this.filteredTasks = filtered;
+          this.updateStatusCounts();
         },
 
         // UI Methods
@@ -769,7 +785,7 @@
         },
 
         saveApiKey() {
-          if (this.apiKeyInput.trim()) {
+          if (this.apiKeyInput && this.apiKeyInput.trim()) {
             this.apiKey = this.apiKeyInput.trim();
             API_CONFIG.setApiKey(this.apiKey);
             this.showApiKeyModal = false;
@@ -778,14 +794,15 @@
           }
         },
 
-        // Computed properties
-        get statusCounts() {
-          return {
-            total: this.tasks.length,
-            todo: this.tasks.filter(t => t.status === 'todo').length,
-            in_progress: this.tasks.filter(t => t.status === 'in_progress').length,
-            done: this.tasks.filter(t => t.status === 'done').length,
-            blocked: this.tasks.filter(t => t.status === 'blocked').length,
+        // Update status counts
+        updateStatusCounts() {
+          const tasks = this.tasks || [];
+          this.statusCounts = {
+            total: tasks.length,
+            todo: tasks.filter(t => t?.status === 'todo').length,
+            in_progress: tasks.filter(t => t?.status === 'in_progress').length,
+            done: tasks.filter(t => t?.status === 'done').length,
+            blocked: tasks.filter(t => t?.status === 'blocked').length,
           };
         },
 
