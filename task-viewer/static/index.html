@@ -654,6 +654,11 @@
                       }"
                       x-text="subtask?.priority || 'N/A'"
                     ></span>
+                    <span
+                      x-show="subtask?.is_blocker"
+                      class="inline-block w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full"
+                      title="Blocks other tasks"
+                    ></span>
                     <span class="text-xs text-gray-400 dark:text-gray-500">Task #<span x-text="subtask.id"></span></span>
                   </div>
                 </div>
