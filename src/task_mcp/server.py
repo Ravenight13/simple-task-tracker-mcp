@@ -1879,6 +1879,107 @@ def validate_task_workspace(
         conn.close()
 
 
+@mcp.tool()
+def audit_workspace_integrity(
+    workspace_path: str | None = None,
+    include_deleted: bool = False,
+    check_git_repo: bool = True,
+) -> dict[str, Any]:
+    """
+    Perform comprehensive workspace integrity audit to detect cross-contamination.
+
+    Scans all tasks and entities in the workspace database for signs of
+    cross-workspace contamination, including mismatched file references,
+    suspicious tags, git repository inconsistencies, and path references
+    in descriptions pointing to other projects.
+
+    Args:
+        workspace_path: Optional workspace path (auto-detected if not provided)
+        include_deleted: Include soft-deleted tasks/entities in audit (default: False)
+        check_git_repo: Validate git repository consistency (default: True)
+
+    Returns:
+        Comprehensive audit report with structure:
+        - workspace_path: str - Audited workspace path
+        - audit_timestamp: str - ISO 8601 timestamp of audit
+        - contamination_found: bool - True if any issues detected
+        - issues: dict - Categorized contamination issues:
+            - file_reference_mismatches: Tasks with file refs outside workspace
+            - suspicious_tags: Tags containing other project names
+            - git_repo_mismatches: Tasks from different git repositories
+            - entity_identifier_mismatches: File entities pointing outside workspace
+            - description_path_references: Absolute paths in descriptions
+        - statistics: dict - Summary counts:
+            - contaminated_tasks: int - Number of contaminated tasks
+            - contaminated_entities: int - Number of contaminated entities
+        - recommendations: list[str] - Actionable cleanup recommendations
+
+    Raises:
+        ValueError: If workspace path invalid or database inaccessible
+
+    Examples:
+        >>> # Run basic audit on current workspace
+        >>> audit_workspace_integrity()
+        {
+            "workspace_path": "/Users/user/projects/task-mcp",
+            "audit_timestamp": "2025-11-02T10:30:00",
+            "contamination_found": False,
+            "issues": {...},
+            "statistics": {
+                "contaminated_tasks": 0,
+                "contaminated_entities": 0
+            },
+            "recommendations": []
+        }
+
+        >>> # Run comprehensive audit including deleted items
+        >>> audit_workspace_integrity(include_deleted=True)
+        {
+            "workspace_path": "/Users/user/projects/task-mcp",
+            "contamination_found": True,
+            "issues": {
+                "file_reference_mismatches": [
+                    {
+                        "task_id": 42,
+                        "title": "Fix authentication bug",
+                        "file_references": ["/Users/user/other-project/auth.py"],
+                        "reason": "File reference outside workspace"
+                    }
+                ],
+                ...
+            },
+            "statistics": {
+                "contaminated_tasks": 3,
+                "contaminated_entities": 1
+            },
+            "recommendations": [
+                "Review and update file references in task #42",
+                "Consider soft-deleting tasks from other projects"
+            ]
+        }
+
+    Use Cases:
+        - Periodic workspace health checks
+        - Post-migration validation
+        - Debugging cross-project contamination issues
+        - Pre-cleanup analysis before bulk operations
+    """
+    from .audit import perform_workspace_audit
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    # Delegate to audit module
+    return perform_workspace_audit(
+        workspace_path=workspace,
+        include_deleted=include_deleted,
+        check_git_repo=check_git_repo,
+    )
+
+
 def main() -> None:
     """Main entry point for the Task MCP server."""
     mcp.run()
