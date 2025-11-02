@@ -489,7 +489,8 @@
                 { value: 'priority', label: 'Priority' },
                 { value: 'status', label: 'Status' },
                 { value: 'created', label: 'Creation Date' },
-                { value: 'title', label: 'Title' }
+                { value: 'title', label: 'Title' },
+                { value: 'id', label: 'Task #' }
               ]" :key="option.value">
                 <button
                   @click="setSortBy(option.value); open = false"
@@ -1511,6 +1512,9 @@ Created: ${this.formatDate(task.created_at)}`;
                 break;
               case 'title':
                 result = (a?.title || '').localeCompare(b?.title || '');
+                break;
+              case 'id':
+                result = (a?.id || 0) - (b?.id || 0);
                 break;
               default:
                 return 0;
