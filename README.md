@@ -2,19 +2,25 @@
 
 A lightweight Model Context Protocol (MCP) server for task and subtask tracking during agentic AI development. Provides isolated SQLite databases per project workspace for Claude Code and Claude Desktop integration.
 
-## What's New in v0.3.0 🎉
+## What's New in v0.4.0 🎉
 
-**Released:** 2025-10-29
+**Released:** 2025-11-02
 
-- 🏢 **Entity System**: Track files, vendors, and other entities with many-to-many task relationships
-- 🔗 **Entity Links**: 7 new MCP tools for entity CRUD and linking to tasks
-- 📊 **Generic Metadata**: Flexible JSON storage for entity-specific data (vendor phases, file metadata, etc.)
-- 🗂️ **Tag-based Discovery**: Filter entities by type and tags for quick discovery
-- 🧪 **60 Integration Tests**: Comprehensive test coverage for entity tools
+- 🛡️ **Workspace Metadata Tracking**: Automatic capture of workspace context on task creation
+- 🔍 **Workspace Validation**: `validate_task_workspace` tool to detect cross-project contamination
+- 📋 **Comprehensive Audit**: `audit_workspace_integrity` tool for full workspace health checks
+- 📖 **Audit Guide**: Complete documentation in [workspace-audit-guide.md](docs/workspace-audit-guide.md)
+- 🔐 **Contamination Prevention**: Early detection and cleanup of misplaced tasks
 
-All changes are backward compatible with v0.2.0. See [CHANGELOG.md](CHANGELOG.md) for full details.
+All changes are backward compatible with v0.3.0. See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 ### Previous Releases
+
+**v0.3.0** (2025-10-29)
+- 🏢 **Entity System**: Track files, vendors, and other entities with many-to-many task relationships
+- 🔗 **Entity Links**: 7 new MCP tools for entity CRUD and linking to tasks
+- 📊 **Generic Metadata**: Flexible JSON storage for entity-specific data
+- 🗂️ **Tag-based Discovery**: Filter entities by type and tags for quick discovery
 
 **v0.2.0** (2025-10-27)
 - ✨ Auto-capture conversation ID in `created_by` field
@@ -35,6 +41,8 @@ All changes are backward compatible with v0.2.0. See [CHANGELOG.md](CHANGELOG.md
 - **Entity Tracking**: Track files, vendors, and other entities with many-to-many task relationships
 - **Generic Metadata**: Flexible JSON storage for entity-specific data
 - **Entity Links**: Many-to-many relationships between tasks and entities with soft delete cascade
+- **Workspace Validation**: Automatic metadata capture and cross-project contamination detection
+- **Integrity Audits**: Comprehensive workspace health checks with actionable recommendations
 
 ### 🔒 Data Validation
 - Description length limit (10,000 characters)

@@ -21,6 +21,7 @@ Task MCP Server is a lightweight Model Context Protocol (MCP) server for task an
 - `tasks` table: Full task hierarchy with parent/child relationships via `parent_task_id`
 - `depends_on` field: JSON array of task IDs for explicit dependencies
 - `file_references` field: JSON array of file paths for context
+- `workspace_metadata` field: JSON with workspace context for cross-contamination prevention (v0.4.0)
 - `entities` table: Typed entities (file, other) with JSON metadata for flexible domain modeling
 - `task_entity_links` table: Many-to-many relationships between tasks and entities
 - Soft delete: `deleted_at` timestamp instead of hard deletion (30-day retention)
@@ -144,6 +145,7 @@ All tools follow this pattern:
 - **Advanced Queries**: get_task_tree (recursive subtasks), get_blocked_tasks, get_next_tasks
 - **Maintenance**: cleanup_deleted_tasks (purge >30 days old)
 - **Project Management**: list_projects, get_project_info, set_project_name
+- **Workspace Validation**: validate_task_workspace, audit_workspace_integrity (v0.4.0)
 
 ### Auto-Capture Fields
 - `created_by`: Conversation ID from MCP context
@@ -180,6 +182,9 @@ def create_task(
 6. Status transitions with blocker_reason validation
 7. Project auto-registration in master.db
 8. Subtask cascade delete when parent is deleted
+9. Workspace metadata capture on task creation
+10. Cross-workspace contamination detection via audit
+11. Task workspace validation for migration scenarios
 
 ### Test Database Isolation
 Use temporary directories for test databases to avoid conflicts:
@@ -260,6 +265,134 @@ Task #76: Validate workspace → tags: "mcp-tools validation project:workspace-m
 # Filter to see all related tasks
 list_tasks(tags="project:workspace-metadata")  # Returns 7 tasks
 ```
+
+## Workspace Metadata and Audit System (v0.4.0)
+
+### Overview
+Workspace metadata tracking prevents cross-project contamination by capturing workspace context during task creation. Combined with audit tools, this ensures workspace integrity and enables early detection of misplaced tasks.
+
+### Workspace Metadata Schema
+
+**Captured automatically on task creation (4 fields):**
+- `workspace_path`: Resolved absolute workspace path
+- `git_root`: Git repository root (null if not in git repo)
+- `cwd_at_creation`: Current working directory when task created
+- `project_name`: Derived from workspace directory name
+
+**Storage:**
+- Stored as JSON in `tasks.workspace_metadata` column
+- Backward compatible - legacy tasks have null metadata
+- No performance impact on existing queries
+
+### MCP Tools for Validation
+
+#### validate_task_workspace
+Validates if a task belongs to the current workspace.
+
+```python
+# Check single task
+result = validate_task_workspace(task_id=42)
+# Returns:
+{
+    "valid": True,  # False if workspace mismatch
+    "task_id": 42,
+    "current_workspace": "/Users/user/projects/task-mcp",
+    "task_workspace": "/Users/user/projects/task-mcp",
+    "workspace_match": True,
+    "warnings": [],  # Contains mismatch details if invalid
+    "metadata": {...}  # Full workspace metadata
+}
+```
+
+**Use cases:**
+- Verify task relevance before working on it
+- Detect accidentally imported tasks
+- Validate after workspace migration
+
+#### audit_workspace_integrity
+Comprehensive workspace audit to detect all contamination issues.
+
+```python
+# Basic audit
+audit = audit_workspace_integrity()
+
+# Include deleted items
+audit = audit_workspace_integrity(include_deleted=True)
+
+# Skip git checks (faster)
+audit = audit_workspace_integrity(check_git_repo=False)
+```
+
+**Returns comprehensive report:**
+```python
+{
+    "workspace_path": "/Users/user/projects/task-mcp",
+    "audit_timestamp": "2025-11-02T10:30:00",
+    "contamination_found": False,
+    "issues": {
+        "file_reference_mismatches": [],  # Tasks with external file refs
+        "suspicious_tags": [],             # Tags containing other project names
+        "git_repo_mismatches": [],        # Tasks from different git repos
+        "entity_identifier_mismatches": [], # File entities pointing outside
+        "description_path_references": []  # Absolute paths in descriptions
+    },
+    "statistics": {
+        "contaminated_tasks": 0,
+        "contaminated_entities": 0
+    },
+    "recommendations": []  # Actionable cleanup steps
+}
+```
+
+### Prevention Strategies
+
+**1. Automatic Workspace Metadata Capture**
+- Every new task records its creation context
+- Enables retroactive validation
+- No manual intervention required
+
+**2. Regular Audits**
+```bash
+# Weekly workspace health check
+audit_workspace_integrity()
+
+# Before major refactoring
+audit_workspace_integrity(include_deleted=True)
+```
+
+**3. Task Validation Before Work**
+```python
+# Always validate before working on old tasks
+if not validate_task_workspace(task_id)["valid"]:
+    print("Warning: Task from different project!")
+```
+
+**4. Clean Workspace Practices**
+- Use project-specific shells/terminals
+- Clear environment variables between projects
+- Run audits after bulk imports
+
+### Common Contamination Patterns
+
+**Pattern 1: Copy-Paste Development**
+- Developer copies code between projects
+- File references point to source project
+- Detection: `file_reference_mismatches` in audit
+
+**Pattern 2: Wrong Terminal**
+- Task created in wrong project's terminal
+- Workspace metadata reveals mismatch
+- Detection: `validate_task_workspace` returns False
+
+**Pattern 3: Git Repository Changes**
+- Project moved or forked
+- Git root changes but tasks remain
+- Detection: `git_repo_mismatches` in audit
+
+**Pattern 4: Bulk Import Errors**
+- Tasks imported from another project
+- Tags/descriptions contain old project names
+- Detection: `suspicious_tags` and `description_path_references`
 
 ## Entity System
 
@@ -458,6 +591,9 @@ files = get_task_entities(task_id=123)
 8. **Don't forget entity uniqueness**: Check (entity_type, identifier) uniqueness for active entities
 9. **Don't skip cascade on entity delete**: Entity deletion must cascade to all task_entity_links
 10. **Don't validate metadata schemas**: Entity metadata is generic JSON (no schema enforcement)
+11. **Don't ignore workspace metadata**: Always capture workspace context on task creation
+12. **Don't skip validation for old tasks**: Use `validate_task_workspace` before working on existing tasks
+13. **Don't mix project contexts**: Run `audit_workspace_integrity` regularly to detect contamination
 
 ## Project Goals
 
