@@ -1,0 +1,158 @@
+
+Running 20 tests using 1 worker
+
+[1A[2K[1/20] tests/e2e/task-viewer-real.spec.ts:22:3 › Task Viewer Frontend E2E Tests › 1. Page loads successfully
+[1A[2K[2/20] tests/e2e/task-viewer-real.spec.ts:35:3 › Task Viewer Frontend E2E Tests › 2. Project Selection - Dropdown exists and works
+[1A[2K  1) tests/e2e/task-viewer-real.spec.ts:35:3 › Task Viewer Frontend E2E Tests › 2. Project Selection - Dropdown exists and works 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('select').filter({ hasText: 'Select Project' }).or(locator('select').first())
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('select').filter({ hasText: 'Select Project' }).or(locator('select').first())[22m
+
+
+      39 |     );
+      40 |
+    > 41 |     await expect(projectSelector).toBeVisible();
+         |                                   ^
+      42 |
+      43 |     // Check if there are options
+      44 |     const options = await projectSelector.locator('option').count();
+        at /Users/cliffclarke/Claude_Code/task-mcp/tests/e2e/task-viewer-real.spec.ts:41:35
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/task-viewer-real-Task-View-131b5---Dropdown-exists-and-works/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/task-viewer-real-Task-View-131b5---Dropdown-exists-and-works/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/task-viewer-real-Task-View-131b5---Dropdown-exists-and-works/error-context.md
+
+
+[1A[2K[3/20] tests/e2e/task-viewer-real.spec.ts:50:3 › Task Viewer Frontend E2E Tests › 3. Status filters are visible and clickable
+[1A[2K[4/20] tests/e2e/task-viewer-real.spec.ts:66:3 › Task Viewer Frontend E2E Tests › 4. Search bar exists and is functional
+[1A[2K[5/20] tests/e2e/task-viewer-real.spec.ts:87:3 › Task Viewer Frontend E2E Tests › 5. Priority filter exists
+[1A[2K[6/20] tests/e2e/task-viewer-real.spec.ts:95:3 › Task Viewer Frontend E2E Tests › 6. Sort button exists
+[1A[2K[7/20] tests/e2e/task-viewer-real.spec.ts:108:3 › Task Viewer Frontend E2E Tests › 7. Task list area renders (empty or with tasks)
+[1A[2K[8/20] tests/e2e/task-viewer-real.spec.ts:122:3 › Task Viewer Frontend E2E Tests › 8. Console has no errors on load
+[1A[2Ktests/e2e/task-viewer-real.spec.ts:122:3 › Task Viewer Frontend E2E Tests › 8. Console has no errors on load
+Console errors: 4
+
+[1A[2KConsole warnings: 2
+
+[1A[2KErrors: [
+  [32m'Failed to load resource: the server responded with a status of 401 (Unauthorized)'[39m,
+  [32m'Error loading projects: Error: Invalid API key. Please check your configuration.\n'[39m +
+    [32m'    at Proxy.loadProjects (http://localhost:8001/:671:23)\n'[39m +
+    [32m'    at async Proxy.init (http://localhost:8001/:652:11)'[39m,
+  [32m'Failed to load resource: the server responded with a status of 401 (Unauthorized)'[39m,
+  [32m'Error loading projects: Error: Invalid API key. Please check your configuration.\n'[39m +
+    [32m'    at Proxy.loadProjects (http://localhost:8001/:671:23)\n'[39m +
+    [32m'    at async Proxy.init (http://localhost:8001/:652:11)'[39m
+]
+
+[1A[2K  2) tests/e2e/task-viewer-real.spec.ts:122:3 › Task Viewer Frontend E2E Tests › 8. Console has no errors on load 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m0[39m
+    Received length: [31m4[39m
+    Received array:  [31m["Failed to load resource: the server responded with a status of 401 (Unauthorized)", "Error loading projects: Error: Invalid API key. Please check your configuration.[39m
+    [31m    at Proxy.loadProjects (http://localhost:8001/:671:23)[39m
+    [31m    at async Proxy.init (http://localhost:8001/:652:11)", "Failed to load resource: the server responded with a status of 401 (Unauthorized)", "Error loading projects: Error: Invalid API key. Please check your configuration.[39m
+    [31m    at Proxy.loadProjects (http://localhost:8001/:671:23)[39m
+    [31m    at async Proxy.init (http://localhost:8001/:652:11)"][39m
+
+      148 |     }
+      149 |
+    > 150 |     expect(errors).toHaveLength(0);
+          |                    ^
+      151 |   });
+      152 |
+      153 |   test('9. API Key modal appears and can be configured', async ({ page }) => {
+        at /Users/cliffclarke/Claude_Code/task-mcp/tests/e2e/task-viewer-real.spec.ts:150:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/task-viewer-real-Task-View-5094e-nsole-has-no-errors-on-load/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/task-viewer-real-Task-View-5094e-nsole-has-no-errors-on-load/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/task-viewer-real-Task-View-5094e-nsole-has-no-errors-on-load/error-context.md
+
+
+[1A[2K[9/20] tests/e2e/task-viewer-real.spec.ts:153:3 › Task Viewer Frontend E2E Tests › 9. API Key modal appears and can be configured
+[1A[2K[10/20] tests/e2e/task-viewer-real.spec.ts:182:3 › Task Viewer Frontend E2E Tests › 10. API Key can be canceled
+[1A[2K[11/20] tests/e2e/task-viewer-real.spec.ts:204:3 › Task Viewer Frontend E2E Tests › 11. Dark mode icon/button exists
+[1A[2K[12/20] tests/e2e/task-viewer-real.spec.ts:219:3 › Task Viewer Frontend E2E Tests › 12. Keyboard navigation works
+[1A[2K[13/20] tests/e2e/task-viewer-real.spec.ts:231:3 › Task Viewer Frontend E2E Tests › 13. Accessibility - Basic ARIA
+[1A[2Ktests/e2e/task-viewer-real.spec.ts:231:3 › Task Viewer Frontend E2E Tests › 13. Accessibility - Basic ARIA
+Has ARIA labels: true
+
+[1A[2KHas roles: true
+
+[1A[2K[14/20] tests/e2e/task-viewer-real.spec.ts:245:3 › Task Viewer Frontend E2E Tests › 14. Accessibility - Axe-core audit
+[1A[2Ktests/e2e/task-viewer-real.spec.ts:245:3 › Task Viewer Frontend E2E Tests › 14. Accessibility - Axe-core audit
+┌─────────┬──────────────────┬────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬───────┐
+│ (index) │ id               │ impact     │ description                                                                                                      │ nodes │
+├─────────┼──────────────────┼────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────┤
+│ 0       │ [32m'color-contrast'[39m │ [32m'serious'[39m  │ [32m'Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds'[39m │ [33m1[39m     │
+│ 1       │ [32m'heading-order'[39m  │ [32m'moderate'[39m │ [32m'Ensure the order of headings is semantically correct'[39m                                                           │ [33m1[39m     │
+│ 2       │ [32m'region'[39m         │ [32m'moderate'[39m │ [32m'Ensure all page content is contained by landmarks'[39m                                                              │ [33m2[39m     │
+└─────────┴──────────────────┴────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴───────┘
+
+[1A[2K┌─────────┬───────────────────────────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬────────────┐
+│ (index) │ target                                                                            │ html                                                                                                                                       │ violations │
+├─────────┼───────────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼────────────┤
+│ 0       │ [32m'[".bg-blue-600.text-white.rounded-full > .ml-1.opacity-75"]'[39m                     │ [32m'<span class="ml-1 opacity-75" x-text="`(${status === \'all\' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`">(0)</span>'[39m │ [32m'[0]'[39m      │
+│ 1       │ [32m'[".text-red-800"]'[39m                                                               │ [32m'<h3 class="text-sm font-medium text-red-800 dark:text-red-200">Error loading tasks</h3>'[39m                                                  │ [32m'[1]'[39m      │
+│ 2       │ [32m'[".flex-wrap > .text-gray-700.dark\\\\:text-gray-300.font-medium:nth-child(1)"]'[39m │ [32m'<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>'[39m                                                        │ [32m'[2]'[39m      │
+│ 3       │ [32m'[".flex-col > .flex-1"]'[39m                                                         │ [32m'<div class="flex-1">'[39m                                                                                                                     │ [32m'[2]'[39m      │
+└─────────┴───────────────────────────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴────────────┘
+
+[1A[2KAccessibility violations found: AssertionError [ERR_ASSERTION]: 3 accessibility violations were detected
+
+3 !== 0
+
+    at testResultDependsOnViolations [90m(/Users/cliffclarke/Claude_Code/task-mcp/[39mnode_modules/[4maxe-playwright[24m/dist/utils.js:16:26[90m)[39m
+    at [90m/Users/cliffclarke/Claude_Code/task-mcp/[39mnode_modules/[4maxe-playwright[24m/dist/index.js:143:51
+    at Generator.next (<anonymous>)
+    at fulfilled [90m(/Users/cliffclarke/Claude_Code/task-mcp/[39mnode_modules/[4maxe-playwright[24m/dist/index.js:28:58[90m)[39m {
+  generatedMessage: [33mfalse[39m,
+  code: [32m'ERR_ASSERTION'[39m,
+  actual: [33m3[39m,
+  expected: [33m0[39m,
+  operator: [32m'strictEqual'[39m,
+  diff: [32m'simple'[39m
+}
+
+[1A[2K[15/20] tests/e2e/task-viewer-real.spec.ts:265:3 › Task Viewer Frontend E2E Tests › 15. Mobile viewport renders correctly
+[1A[2K[16/20] tests/e2e/task-viewer-real.spec.ts:276:3 › Task Viewer Frontend E2E Tests › 16. Tablet viewport renders correctly
+[1A[2K[17/20] tests/e2e/task-viewer-real.spec.ts:286:3 › Task Viewer Frontend E2E Tests › 17. Large desktop viewport renders correctly
+[1A[2K[18/20] tests/e2e/task-viewer-real.spec.ts:296:3 › Task Viewer Frontend E2E Tests › 18. Page is responsive to window resize
+[1A[2K[19/20] tests/e2e/task-viewer-real.spec.ts:311:3 › Task Viewer Frontend E2E Tests › 19. All interactive elements are visible
+[1A[2Ktests/e2e/task-viewer-real.spec.ts:311:3 › Task Viewer Frontend E2E Tests › 19. All interactive elements are visible
+Buttons: 21
+
+[1A[2KInputs: 2
+
+[1A[2KSelects: 0
+
+[1A[2K[20/20] tests/e2e/task-viewer-real.spec.ts:327:3 › Task Viewer Frontend E2E Tests › 20. Network requests complete successfully
+[1A[2Ktests/e2e/task-viewer-real.spec.ts:327:3 › Task Viewer Frontend E2E Tests › 20. Network requests complete successfully
+Failed requests: 0
+
+[1A[2K  2 failed
+    tests/e2e/task-viewer-real.spec.ts:35:3 › Task Viewer Frontend E2E Tests › 2. Project Selection - Dropdown exists and works 
+    tests/e2e/task-viewer-real.spec.ts:122:3 › Task Viewer Frontend E2E Tests › 8. Console has no errors on load 
+  18 passed (55.7s)
