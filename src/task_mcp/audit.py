@@ -135,7 +135,7 @@ def _check_file_references(
 
 def _check_suspicious_tags(
     tasks: list[dict[str, Any]],
-    workspace_path: str,
+    workspace_path: str,  # noqa: ARG001
     report: dict[str, Any],
 ) -> None:
     """Check for tags that suggest different projects."""
@@ -250,7 +250,7 @@ def _check_entity_identifiers(
 
 def _check_git_consistency(
     tasks: list[dict[str, Any]],
-    entities: list[dict[str, Any]],
+    entities: list[dict[str, Any]],  # noqa: ARG001
     workspace_path: str,
     report: dict[str, Any],
 ) -> dict[str, Any]:
@@ -305,19 +305,18 @@ def _check_git_consistency(
     for task, path in all_paths:
         path_git_root = _find_git_root(path)
 
-        if path_git_root and workspace_git_root:
-            if Path(path_git_root).resolve() != Path(workspace_git_root).resolve():
-                key = (task["id"], path_git_root)
-                if key not in seen_mismatches:
-                    seen_mismatches.add(key)
-                    report["issues"]["git_repo_mismatches"].append({
-                        "task_id": task["id"],
-                        "task_title": task["title"],
-                        "file_references": [path],
-                        "current_git_root": workspace_git_root,
-                        "detected_git_root": path_git_root,
-                        "severity": "high",
-                    })
+        if path_git_root and workspace_git_root and Path(path_git_root).resolve() != Path(workspace_git_root).resolve():
+            key = (task["id"], path_git_root)
+            if key not in seen_mismatches:
+                seen_mismatches.add(key)
+                report["issues"]["git_repo_mismatches"].append({
+                    "task_id": task["id"],
+                    "task_title": task["title"],
+                    "file_references": [path],
+                    "current_git_root": workspace_git_root,
+                    "detected_git_root": path_git_root,
+                    "severity": "high",
+                })
 
     return git_info
 
@@ -357,7 +356,7 @@ def _calculate_statistics(report: dict[str, Any]) -> None:
     severity_counts: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
 
     # Count unique contaminated tasks
-    for issue_type, issues in report["issues"].items():
+    for _issue_type, issues in report["issues"].items():
         for issue in issues:
             if "task_id" in issue:
                 contaminated_task_ids.add(issue["task_id"])
