@@ -37,6 +37,60 @@
 
 ---
 
+## 🚨 CRITICAL ISSUE DISCOVERED (Must Fix First!)
+
+### Refinement 0: Workspace Filtering Bug ⚠️
+**CRITICAL:** Task viewer shows tasks from ALL workspaces instead of filtering to current project!
+
+**Issue:** User reported "I see tasks blended from other projects now"
+
+**Root Cause:**
+Backend (task-viewer/main.py) doesn't pass `workspace_path` parameter to MCP tool calls, causing queries across all workspaces instead of filtering to current project.
+
+**Impact:**
+- ❌ Tasks from all projects mixed together
+- ❌ Cannot track work per project
+- ❌ Project isolation completely broken
+- ❌ Task IDs may collide between projects
+
+**Solution:**
+Add `workspace_path` parameter to all 8 API endpoints in task-viewer/main.py:
+1. `/api/projects` - list_projects()
+2. `/api/projects/{workspace_hash}/info` - get_project_info(workspace_path)
+3. `/api/tasks` - list_tasks(workspace_path, ...)
+4. `/api/tasks/{task_id}` - get_task(task_id, workspace_path)
+5. `/api/tasks/{task_id}/tree` - get_task_tree(task_id, workspace_path)
+6. `/api/tasks/blocked` - get_blocked_tasks(workspace_path)
+7. `/api/tasks/next` - get_next_tasks(workspace_path)
+8. `/api/tasks/search` - search_tasks(search_term, workspace_path)
+
+**Implementation:**
+```python
+# Use existing workspace_resolver.py module!
+from workspace_resolver import resolve_workspace
+
+WORKSPACE_PATH = resolve_workspace()  # At top of main.py
+
+# In each endpoint, add workspace_path parameter:
+tasks = await mcp_client.call_tool("list_tasks", {
+    "workspace_path": WORKSPACE_PATH,  # ADD THIS
+    "status": status
+})
+```
+
+**Files to Modify:**
+- task-viewer/main.py (all 8 API endpoints)
+- task-viewer/.env (add WORKSPACE_PATH config)
+
+**Documentation:** WORKSPACE_FILTERING.md (complete implementation guide)
+
+**Complexity:** Low-Medium (1-2 hours)
+**Priority:** CRITICAL - Must fix before other refinements
+**Branch:** fix/workspace-filtering (separate branch)
+**Task ID:** #38
+
+---
+
 ## Refinement Requests (5 Total)
 
 ### 1. Refresh Button ⟳
