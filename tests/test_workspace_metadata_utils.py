@@ -201,7 +201,9 @@ def test_get_workspace_metadata_fields_types() -> None:
 
 
 def test_get_workspace_metadata_workspace_resolution() -> None:
-    """Verify get_workspace_metadata() uses resolve_workspace logic."""
+    """Verify get_workspace_metadata() uses resolve_workspace logic (v0.4.0)."""
+    import pytest
+
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = str(Path(tmpdir) / "resolve-test")
         Path(workspace).mkdir()
@@ -211,7 +213,6 @@ def test_get_workspace_metadata_workspace_resolution() -> None:
         # Resolve both paths for macOS /var vs /private/var comparison
         assert Path(metadata["workspace_path"]).resolve() == Path(workspace).resolve()
 
-        # Test with None (should use cwd)
-        metadata_none = get_workspace_metadata(None)
-        assert metadata_none["workspace_path"] is not None
-        assert isinstance(metadata_none["workspace_path"], str)
+        # Test with None (should raise ValueError in v0.4.0)
+        with pytest.raises(ValueError, match="workspace_path is REQUIRED"):
+            get_workspace_metadata(None)

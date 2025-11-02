@@ -27,16 +27,16 @@ class TestUtils:
         assert result == "/explicit/path"
 
     def test_resolve_workspace_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test environment variable fallback."""
+        """Test that None raises ValueError (v0.4.0 - no auto-detection)."""
         monkeypatch.setenv("TASK_MCP_WORKSPACE", "/env/path")
-        result = resolve_workspace()
-        assert result == "/env/path"
+        with pytest.raises(ValueError, match="workspace_path is REQUIRED"):
+            resolve_workspace()
 
     def test_resolve_workspace_cwd(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test current directory fallback."""
+        """Test that None raises ValueError (v0.4.0 - no auto-detection)."""
         monkeypatch.delenv("TASK_MCP_WORKSPACE", raising=False)
-        result = resolve_workspace()
-        assert result == os.getcwd()
+        with pytest.raises(ValueError, match="workspace_path is REQUIRED"):
+            resolve_workspace()
 
     def test_hash_workspace_path(self) -> None:
         """Test workspace path hashing."""
