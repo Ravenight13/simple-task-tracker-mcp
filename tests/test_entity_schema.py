@@ -425,7 +425,7 @@ class TestTasksTableUnaffected:
                 'id', 'title', 'description', 'status', 'priority',
                 'parent_task_id', 'depends_on', 'tags', 'blocker_reason',
                 'file_references', 'created_by', 'created_at', 'updated_at',
-                'completed_at', 'deleted_at'
+                'completed_at', 'deleted_at', 'workspace_metadata'
             }
 
             assert columns == expected_columns
