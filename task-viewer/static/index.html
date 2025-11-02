@@ -720,7 +720,7 @@
             <div
               x-show="expandedSubtasks[task.id]"
               x-collapse
-              class="mt-3 space-y-2 border-l-2 border-purple-300 dark:border-purple-700 pl-3"
+              class="mt-3"
             >
               <!-- Loading state -->
               <div x-show="loadingSubtasks[task.id]" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -731,48 +731,8 @@
                 <span>Loading subtasks...</span>
               </div>
 
-              <!-- Subtask cards -->
-              <template x-for="subtask in (subtasksCache[task.id] || [])" :key="subtask.id">
-                <div
-                  @click.stop="openTaskDetail(subtask)"
-                  class="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-600 cursor-pointer transition-colors"
-                >
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="flex-1 min-w-0">
-                      <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" x-text="subtask?.title || 'Untitled'"></h4>
-                      <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1" x-text="subtask?.description || 'No description'"></p>
-                    </div>
-                    <span
-                      class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
-                      :class="{
-                        'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': subtask?.status === 'todo',
-                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': subtask?.status === 'in_progress',
-                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': subtask?.status === 'done',
-                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': subtask?.status === 'blocked',
-                        'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': subtask?.status === 'to_be_deleted'
-                      }"
-                      x-text="subtask?.status ? subtask.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
-                    ></span>
-                  </div>
-                  <div class="mt-1 flex items-center gap-2">
-                    <span
-                      class="text-xs px-1.5 py-0.5 rounded"
-                      :class="{
-                        'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300': subtask?.priority === 'low',
-                        'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': subtask?.priority === 'medium',
-                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': subtask?.priority === 'high'
-                      }"
-                      x-text="subtask?.priority || 'N/A'"
-                    ></span>
-                    <span
-                      x-show="subtask?.is_blocker"
-                      class="inline-block w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full"
-                      title="Blocks other tasks"
-                    ></span>
-                    <span class="text-xs text-gray-400 dark:text-gray-500">Task #<span x-text="subtask.id"></span></span>
-                  </div>
-                </div>
-              </template>
+              <!-- Recursive subtask rendering -->
+              <div x-html="renderSubtasksRecursive(subtasksCache[task.id] || [], 0)"></div>
             </div>
 
             <!-- Metadata Row -->
@@ -1148,6 +1108,9 @@
 
         // Lifecycle
         async init() {
+          // Set up global handler for nested subtask clicks
+          window.__taskViewerOpenTask = (task) => this.openTaskDetail(task);
+
           // Check for API key
           if (!this.apiKey) {
             this.showApiKeyModal = true;
@@ -1669,6 +1632,86 @@ Created: ${this.formatDate(task.created_at)}`;
           } catch {
             return [];
           }
+        },
+
+        // Recursive subtask rendering with visual hierarchy
+        renderSubtasksRecursive(subtasks, depth) {
+          if (!subtasks || subtasks.length === 0) return '';
+
+          const indent = depth * 16; // 16px per level
+          const borderColor = depth === 0 ? 'border-purple-300 dark:border-purple-700' : 'border-purple-200 dark:border-purple-800';
+
+          let html = `<div class="space-y-2 border-l-2 ${borderColor} pl-3" style="margin-left: ${indent}px;">`;
+
+          for (const subtask of subtasks) {
+            const statusClasses = {
+              'todo': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
+              'in_progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+              'done': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+              'blocked': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+              'to_be_deleted': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+            };
+
+            const priorityClasses = {
+              'low': 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300',
+              'medium': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+              'high': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+            };
+
+            const statusClass = statusClasses[subtask.status] || '';
+            const priorityClass = priorityClasses[subtask.priority] || '';
+            const statusText = subtask.status ? subtask.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A';
+            const priorityText = subtask.priority || 'N/A';
+            const hasChildren = subtask.subtasks && subtask.subtasks.length > 0;
+
+            // Escape HTML in text fields
+            const escapeHtml = (text) => {
+              const div = document.createElement('div');
+              div.textContent = text || '';
+              return div.innerHTML;
+            };
+
+            const title = escapeHtml(subtask.title || 'Untitled');
+            const description = escapeHtml(subtask.description || 'No description');
+
+            // Store subtask data for onclick handler
+            const subtaskDataAttr = `data-task-id="${subtask.id}" data-task='${JSON.stringify(subtask).replace(/'/g, '&#39;')}'`;
+
+            html += `
+              <div>
+                <div
+                  ${subtaskDataAttr}
+                  onclick="window.__taskViewerOpenTask && window.__taskViewerOpenTask(JSON.parse(this.getAttribute('data-task')))"
+                  class="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-600 cursor-pointer transition-colors"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        ${hasChildren ? `<span class="text-xs text-purple-600 dark:text-purple-400 font-medium" title="Has ${subtask.subtasks.length} subtask(s)">⎿</span>` : ''}
+                        <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${title}</h4>
+                      </div>
+                      <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">${description}</p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusClass}">
+                      ${statusText}
+                    </span>
+                  </div>
+                  <div class="mt-1 flex items-center gap-2">
+                    <span class="text-xs px-1.5 py-0.5 rounded ${priorityClass}">
+                      ${priorityText}
+                    </span>
+                    ${subtask.is_blocker ? '<span class="inline-block w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full" title="Blocks other tasks"></span>' : ''}
+                    <span class="text-xs text-gray-400 dark:text-gray-500">Task #${subtask.id}</span>
+                    ${hasChildren ? `<span class="text-xs text-purple-600 dark:text-purple-400">(${subtask.subtasks.length} subtask${subtask.subtasks.length !== 1 ? 's' : ''})</span>` : ''}
+                  </div>
+                </div>
+                ${hasChildren ? this.renderSubtasksRecursive(subtask.subtasks, depth + 1) : ''}
+              </div>
+            `;
+          }
+
+          html += '</div>';
+          return html;
         }
       }
     }
