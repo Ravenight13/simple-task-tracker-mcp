@@ -1,0 +1,734 @@
+{
+  "timestamp": "2025-11-02T08:22:11.072491",
+  "summary": {
+    "console_errors": 2,
+    "console_warnings": 49,
+    "page_errors": 47,
+    "network_errors": 1,
+    "total": 99
+  },
+  "console_errors": [
+    {
+      "timestamp": "2025-11-02T08:21:57.120663",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:8001/js/config.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.367134",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:8001/favicon.ico",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "console_warnings": [
+    {
+      "timestamp": "2025-11-02T08:21:57.245338",
+      "type": "warning",
+      "text": "cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation",
+      "location": {
+        "url": "https://cdn.tailwindcss.com/",
+        "lineNumber": 63,
+        "columnNumber": 1710
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.320909",
+      "type": "warning",
+      "text": "Alpine Warning: You can't use [x-trap] without first installing the \"Focus\" plugin here: https://alpinejs.dev/plugins/focus JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 4,
+        "columnNumber": 4018
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.321207",
+      "type": "warning",
+      "text": "Alpine Expression Error: API_CONFIG is not defined\n\nExpression: \"taskViewer()\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.321809",
+      "type": "warning",
+      "text": "Alpine Expression Error: init is not defined\n\nExpression: \"init()\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.322062",
+      "type": "warning",
+      "text": "Alpine Expression Error: currentProject is not defined\n\nExpression: \"currentProject?.friendly_name || (currentProject?.workspace_path ? currentProject.workspace_path.split('/').pop() : 'Select Project')\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.322183",
+      "type": "warning",
+      "text": "Alpine Expression Error: projects is not defined\n\nExpression: \"projects\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.322374",
+      "type": "warning",
+      "text": "Alpine Expression Error: apiKey is not defined\n\nExpression: \"{ 'text-green-600 dark:text-green-400': apiKey, 'text-red-600 dark:text-red-400': !apiKey }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.322564",
+      "type": "warning",
+      "text": "Alpine Expression Error: apiKey is not defined\n\nExpression: \"apiKey ? 'API Key Configured' : 'Configure API Key'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.322737",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\n                ? 'bg-blue-600 text-white'\n                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.322952",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.323142",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusCounts is not defined\n\nExpression: \"`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.323276",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\n                ? 'bg-blue-600 text-white'\n                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.323436",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.323580",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusCounts is not defined\n\nExpression: \"`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.323673",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\n                ? 'bg-blue-600 text-white'\n                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.323772",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.323893",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusCounts is not defined\n\nExpression: \"`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.323994",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\n                ? 'bg-blue-600 text-white'\n                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.324086",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.324171",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusCounts is not defined\n\nExpression: \"`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.325116",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\n                ? 'bg-blue-600 text-white'\n                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.325305",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusFilter is not defined\n\nExpression: \"statusFilter === status\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.325461",
+      "type": "warning",
+      "text": "Alpine Expression Error: statusCounts is not defined\n\nExpression: \"`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.325581",
+      "type": "warning",
+      "text": "Alpine Expression Error: searchQuery is not defined\n\nExpression: \"searchQuery\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.325698",
+      "type": "warning",
+      "text": "Alpine Expression Error: priorityFilter is not defined\n\nExpression: \"priorityFilter === 'all' ? 'All' : priorityFilter.charAt(0).toUpperCase() + priorityFilter.slice(1)\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.326443",
+      "type": "warning",
+      "text": "Alpine Expression Error: priorityFilter is not defined\n\nExpression: \"{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.327002",
+      "type": "warning",
+      "text": "Alpine Expression Error: priorityFilter is not defined\n\nExpression: \"{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.327285",
+      "type": "warning",
+      "text": "Alpine Expression Error: priorityFilter is not defined\n\nExpression: \"{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.328045",
+      "type": "warning",
+      "text": "Alpine Expression Error: priorityFilter is not defined\n\nExpression: \"{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.328520",
+      "type": "warning",
+      "text": "Alpine Expression Error: sortBy is not defined\n\nExpression: \"{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.328896",
+      "type": "warning",
+      "text": "Alpine Expression Error: sortBy is not defined\n\nExpression: \"{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.329163",
+      "type": "warning",
+      "text": "Alpine Expression Error: sortBy is not defined\n\nExpression: \"{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.329349",
+      "type": "warning",
+      "text": "Alpine Expression Error: sortBy is not defined\n\nExpression: \"{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.329499",
+      "type": "warning",
+      "text": "Alpine Expression Error: filteredTasks is not defined\n\nExpression: \"`Showing ${(filteredTasks || []).length} of ${(tasks || []).length} tasks`\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.329689",
+      "type": "warning",
+      "text": "Alpine Expression Error: loading is not defined\n\nExpression: \"loading\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.329820",
+      "type": "warning",
+      "text": "Alpine Expression Error: error is not defined\n\nExpression: \"error && !loading\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330003",
+      "type": "warning",
+      "text": "Alpine Expression Error: error is not defined\n\nExpression: \"error\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330157",
+      "type": "warning",
+      "text": "Alpine Expression Error: loading is not defined\n\nExpression: \"!loading && !error && (filteredTasks || []).length === 0\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330289",
+      "type": "warning",
+      "text": "Alpine Expression Error: searchQuery is not defined\n\nExpression: \"searchQuery || statusFilter !== 'all' || priorityFilter !== 'all'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330382",
+      "type": "warning",
+      "text": "Alpine Expression Error: searchQuery is not defined\n\nExpression: \"!searchQuery && statusFilter === 'all' && priorityFilter === 'all'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330468",
+      "type": "warning",
+      "text": "Alpine Expression Error: loading is not defined\n\nExpression: \"!loading && !error && (filteredTasks || []).length > 0\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330562",
+      "type": "warning",
+      "text": "Alpine Expression Error: filteredTasks is not defined\n\nExpression: \"filteredTasks\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330645",
+      "type": "warning",
+      "text": "Alpine Expression Error: selectedTask is not defined\n\nExpression: \"selectedTask ? 'modal-title-' + (selectedTask?.id || 'task') : 'modal-title-task'\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330740",
+      "type": "warning",
+      "text": "Alpine Expression Error: showModal is not defined\n\nExpression: \"showModal\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.330892",
+      "type": "warning",
+      "text": "Alpine Expression Error: showModal is not defined\n\nExpression: \"showModal\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.331048",
+      "type": "warning",
+      "text": "Alpine Expression Error: selectedTask is not defined\n\nExpression: \"selectedTask\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.331228",
+      "type": "warning",
+      "text": "Alpine Expression Error: showApiKeyModal is not defined\n\nExpression: \"showApiKeyModal\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.331386",
+      "type": "warning",
+      "text": "Alpine Expression Error: showApiKeyModal is not defined\n\nExpression: \"showApiKeyModal\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.331485",
+      "type": "warning",
+      "text": "Alpine Expression Error: apiKeyInput is not defined\n\nExpression: \"apiKeyInput\"\n\n JSHandle@node",
+      "location": {
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+        "lineNumber": 0,
+        "columnNumber": 5094
+      }
+    }
+  ],
+  "page_errors": [
+    {
+      "timestamp": "2025-11-02T08:21:57.336645",
+      "message": "API_CONFIG is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.337001",
+      "message": "init is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.337491",
+      "message": "currentProject is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.337761",
+      "message": "projects is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.337813",
+      "message": "apiKey is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.337889",
+      "message": "apiKey is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.337966",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.338002",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.338168",
+      "message": "statusCounts is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.338241",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.338327",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.338560",
+      "message": "statusCounts is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.338729",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.338815",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.339138",
+      "message": "statusCounts is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.339379",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.339564",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.339739",
+      "message": "statusCounts is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.340043",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.340298",
+      "message": "statusFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.340426",
+      "message": "statusCounts is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.340651",
+      "message": "searchQuery is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.341078",
+      "message": "priorityFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.341331",
+      "message": "priorityFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.341606",
+      "message": "priorityFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.341804",
+      "message": "priorityFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.341960",
+      "message": "priorityFilter is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342112",
+      "message": "sortBy is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342236",
+      "message": "sortBy is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342289",
+      "message": "sortBy is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342329",
+      "message": "sortBy is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342388",
+      "message": "filteredTasks is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342483",
+      "message": "loading is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342534",
+      "message": "error is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342591",
+      "message": "error is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342688",
+      "message": "loading is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342771",
+      "message": "searchQuery is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342811",
+      "message": "searchQuery is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342845",
+      "message": "loading is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342886",
+      "message": "filteredTasks is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.342956",
+      "message": "selectedTask is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.343006",
+      "message": "showModal is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.343076",
+      "message": "showModal is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.343119",
+      "message": "selectedTask is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.343153",
+      "message": "showApiKeyModal is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.343257",
+      "message": "showApiKeyModal is not defined"
+    },
+    {
+      "timestamp": "2025-11-02T08:21:57.343301",
+      "message": "apiKeyInput is not defined"
+    }
+  ],
+  "network_errors": [
+    {
+      "timestamp": "2025-11-02T08:21:57.121065",
+      "url": "http://localhost:8001/js/config.js",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "console_logs": [
+    {
+      "timestamp": "2025-11-02T08:21:57.333995",
+      "type": "verbose",
+      "text": "[DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o",
+      "location": {
+        "url": "http://localhost:8001/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ]
+}
