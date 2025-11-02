@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import subprocess
 from pathlib import Path
 
 
@@ -119,3 +120,149 @@ def ensure_absolute_path(path: str) -> str:
         raise ValueError("Path cannot be empty")
 
     return str(Path(path).resolve())
+
+
+def get_workspace_metadata(workspace_path: str | None = None) -> dict[str, str | None]:
+    """
+    Capture workspace metadata for task audit trail.
+
+    Collects workspace context including resolved path, git repository root,
+    current working directory, and project friendly name. This metadata
+    enables cross-workspace validation and task contamination prevention.
+
+    Args:
+        workspace_path: Optional workspace path (resolved internally)
+
+    Returns:
+        Dictionary with workspace context:
+        - workspace_path: Resolved absolute workspace path
+        - git_root: Absolute path to git root (None if not a git repo)
+        - cwd_at_creation: Absolute current working directory
+        - project_name: Friendly name from master.db or workspace basename
+
+    Examples:
+        >>> get_workspace_metadata()
+        {
+            "workspace_path": "/Users/user/projects/task-mcp",
+            "git_root": "/Users/user/projects/task-mcp",
+            "cwd_at_creation": "/Users/user/projects/task-mcp/src",
+            "project_name": "task-mcp"
+        }
+
+        >>> get_workspace_metadata("/path/to/non-git-project")
+        {
+            "workspace_path": "/path/to/non-git-project",
+            "git_root": None,
+            "cwd_at_creation": "/Users/user/projects/task-mcp",
+            "project_name": "non-git-project"
+        }
+    """
+    # Resolve workspace using existing logic
+    resolved_workspace = resolve_workspace(workspace_path)
+
+    # Get current working directory
+    cwd = str(Path.cwd().resolve())
+
+    # Detect git root (if any)
+    git_root = _get_git_root(resolved_workspace)
+
+    # Get project name from master.db or workspace basename
+    project_name = _get_project_name(resolved_workspace)
+
+    return {
+        "workspace_path": resolved_workspace,
+        "git_root": git_root,
+        "cwd_at_creation": cwd,
+        "project_name": project_name
+    }
+
+
+def _get_git_root(workspace_path: str) -> str | None:
+    """
+    Get git repository root for workspace.
+
+    Uses `git rev-parse --show-toplevel` to detect git repository root.
+    Handles non-git directories gracefully by returning None.
+
+    Args:
+        workspace_path: Absolute path to workspace
+
+    Returns:
+        Absolute path to git root, or None if not a git repo
+
+    Examples:
+        >>> _get_git_root("/Users/user/projects/task-mcp")
+        "/Users/user/projects/task-mcp"
+
+        >>> _get_git_root("/Users/user/non-git-directory")
+        None
+
+    Notes:
+        - Uses 2-second timeout for subprocess operations
+        - Handles FileNotFoundError if git is not installed
+        - Returns None on any error (non-git directory, timeout, etc.)
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", workspace_path, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return None
+
+
+def _get_project_name(workspace_path: str) -> str:
+    """
+    Get project friendly name from master.db or workspace basename.
+
+    Attempts to retrieve friendly_name from master.db projects table.
+    Falls back to workspace directory name if:
+    - friendly_name is not set in master.db
+    - master.db is not accessible
+    - Project not yet registered
+
+    Args:
+        workspace_path: Absolute path to workspace
+
+    Returns:
+        Project friendly name or workspace directory name
+
+    Examples:
+        >>> _get_project_name("/Users/user/projects/task-mcp")
+        "task-mcp"  # from master.db friendly_name or basename
+
+        >>> _get_project_name("/Users/user/new-project")
+        "new-project"  # fallback to basename if not in master.db
+
+    Notes:
+        - Does NOT register project in master.db (read-only operation)
+        - Handles database connection errors gracefully
+        - Handles missing friendly_name gracefully (returns basename)
+    """
+    from .master import get_master_connection
+
+    # Try to get friendly_name from master.db
+    try:
+        project_hash = hash_workspace_path(workspace_path)
+        conn = get_master_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT friendly_name FROM projects WHERE id = ?",
+            (project_hash,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if row and row["friendly_name"]:
+            return str(row["friendly_name"])
+    except Exception:
+        pass  # Fallback to basename
+
+    # Fallback: use workspace directory name
+    return Path(workspace_path).name
