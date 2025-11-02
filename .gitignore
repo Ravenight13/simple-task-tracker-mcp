@@ -58,3 +58,8 @@ htmlcov/
 
 # Logs
 *.log
+
+# Environment variables
+.env
+.env.local
+task-viewer/.env
