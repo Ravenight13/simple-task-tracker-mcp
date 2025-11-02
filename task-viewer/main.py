@@ -499,6 +499,42 @@ async def get_task(
     return TaskResponse(**task_data)
 
 
+@app.get("/api/tasks/{task_id}/tree", response_model=TaskResponse)
+async def get_task_tree(
+    task_id: int,
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+):
+    """
+    Get a task with all descendant subtasks (recursive tree).
+
+    Args:
+        task_id: Root task ID
+        project_id: Optional project hint for workspace resolution
+
+    Returns:
+        Task object with 'subtasks' field containing nested subtasks
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Call task-mcp
+    task_tree = await mcp_service.call_tool(
+        "get_task_tree", {"task_id": task_id, "workspace_path": resolved_workspace}
+    )
+
+    if not task_tree:
+        raise ValueError(f"Task with ID {task_id} not found or deleted")
+
+    return TaskResponse(**task_tree)
+
+
 # Mount static files for frontend
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
