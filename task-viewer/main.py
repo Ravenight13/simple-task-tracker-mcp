@@ -9,6 +9,7 @@ This is Phase 1: Read-only viewer (no create/update/delete operations).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -426,6 +427,40 @@ async def list_tasks(
 
     # Call task-mcp
     tasks_data = await mcp_service.call_tool("list_tasks", args)
+
+    # Add blocker detection logic
+    # Build a map of which tasks are blocked by which tasks
+    blocker_map = {}  # task_id -> [list of task_ids it blocks]
+
+    for task in tasks_data:
+        task_id = task.get("id")
+        depends_on = task.get("depends_on")
+
+        # Parse depends_on (could be JSON string or list)
+        if depends_on:
+            try:
+                if isinstance(depends_on, str):
+                    dep_list = json.loads(depends_on)
+                else:
+                    dep_list = depends_on
+
+                # For each dependency, mark it as a blocker
+                for dep_id in dep_list:
+                    if dep_id not in blocker_map:
+                        blocker_map[dep_id] = []
+                    blocker_map[dep_id].append(task_id)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    # Enhance tasks with blocker metadata
+    for task in tasks_data:
+        task_id = task.get("id")
+        if task_id in blocker_map:
+            task["is_blocker"] = True
+            task["blocks_task_ids"] = blocker_map[task_id]
+        else:
+            task["is_blocker"] = False
+            task["blocks_task_ids"] = []
 
     # Apply pagination
     total = len(tasks_data)
