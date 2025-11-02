@@ -1,5 +1,6 @@
 """Type stubs for workspace integrity audit functions."""
 
+from pathlib import Path
 from typing import Any
 
 def perform_workspace_audit(
@@ -46,5 +47,3 @@ def _find_git_root(path: str) -> str | None: ...
 def _calculate_statistics(report: dict[str, Any]) -> None: ...
 
 def _generate_recommendations(report: dict[str, Any]) -> None: ...
-
-from pathlib import Path

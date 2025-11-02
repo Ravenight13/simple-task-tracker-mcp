@@ -1,34 +1,35 @@
 """Utility functions for workspace detection, path hashing, and validation."""
 
 import hashlib
-import os
 import subprocess
 from pathlib import Path
 
 
 def resolve_workspace(workspace_path: str | None = None) -> str:
     """
-    Resolve workspace path using priority order.
+    Resolve workspace path with REQUIRED explicit parameter.
 
-    Priority:
-    1. Explicit workspace_path parameter
-    2. TASK_MCP_WORKSPACE environment variable
-    3. Current working directory (fallback)
+    IMPORTANT: As of v0.4.0, workspace_path is REQUIRED to prevent
+    cross-workspace contamination. All MCP tool calls must explicitly
+    provide the workspace_path parameter.
 
     Args:
-        workspace_path: Optional explicit workspace path
+        workspace_path: REQUIRED explicit workspace path
 
     Returns:
         Absolute path to workspace directory
+
+    Raises:
+        ValueError: If workspace_path is None or empty
     """
-    if workspace_path:
-        return ensure_absolute_path(workspace_path)
+    if not workspace_path:
+        raise ValueError(
+            "workspace_path is REQUIRED. "
+            "Please provide an explicit workspace_path parameter to prevent cross-workspace contamination. "
+            "Example: create_task(title='Fix bug', workspace_path='/path/to/project')"
+        )
 
-    env_workspace = os.environ.get("TASK_MCP_WORKSPACE")
-    if env_workspace:
-        return ensure_absolute_path(env_workspace)
-
-    return str(Path.cwd().resolve())
+    return ensure_absolute_path(workspace_path)
 
 
 def hash_workspace_path(workspace_path: str) -> str:

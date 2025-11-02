@@ -39,17 +39,45 @@ src/task_mcp/
 ```
 
 **Key Responsibilities:**
-- `utils.py`: Workspace detection priority: explicit param → TASK_MCP_WORKSPACE env → cwd
+- `utils.py`: Workspace validation (REQUIRED explicit param as of v0.4.0)
 - `database.py`: WAL mode configuration, connection pooling, foreign key enforcement, entity operations
 - `models.py`: 10k char description limit, blocker_reason validation, status transitions, entity models
 - `master.py`: Auto-register projects on first access, update last_accessed timestamps
 
-### Workspace Detection Flow
+### Workspace Detection Flow (v0.4.0 - BREAKING CHANGE)
 
-1. **Claude Code (auto-detection)**: Sets `TASK_MCP_WORKSPACE` environment variable, tools omit `workspace_path` parameter
-2. **Claude Desktop (explicit)**: Always passes `workspace_path` parameter in tool calls
-3. **Fallback**: Use current working directory if neither above is available
-4. Hash workspace path → lookup/create project DB → register in master.db if new
+**CRITICAL: workspace_path is now REQUIRED on all MCP tool calls**
+
+As of v0.4.0, all MCP tools require an explicit `workspace_path` parameter to prevent cross-workspace contamination. The auto-detection fallback has been removed.
+
+**Tool Signature Pattern:**
+```python
+@mcp.tool()
+def create_task(
+    title: str,
+    workspace_path: str,  # REQUIRED - no longer optional
+    ...
+)
+```
+
+**Error Behavior:**
+- If `workspace_path` is not provided or is None/empty, tools will raise:
+  ```
+  ValueError: workspace_path is REQUIRED.
+  Please provide an explicit workspace_path parameter to prevent cross-workspace contamination.
+  Example: create_task(title='Fix bug', workspace_path='/path/to/project')
+  ```
+
+**Migration Notes:**
+- All tool calls must now explicitly pass `workspace_path`
+- No fallback to environment variables or current working directory
+- This ensures tasks are always created in the correct workspace
+- Prevents accidental cross-project contamination
+
+**Flow:**
+1. Tool receives explicit `workspace_path` parameter (REQUIRED)
+2. `resolve_workspace()` validates path is not None/empty
+3. Hash workspace path → lookup/create project DB → register in master.db if new
 
 ## Development Commands
 
@@ -127,15 +155,32 @@ for dep_id in depends_on_ids:
 
 ## MCP Tools Implementation
 
-### Core Pattern
+### Core Pattern (v0.4.0)
 All tools follow this pattern:
-1. Resolve workspace_path (explicit param → env var → cwd)
-2. Hash workspace path to get project DB filename
-3. Connect to/create project database
-4. Register project in master.db if first access
-5. Update last_accessed in master.db
-6. Execute operation
-7. Return FastMCP-formatted response
+1. **Require explicit workspace_path** parameter (no auto-detection/fallback)
+2. Validate workspace_path is not None/empty (raises ValueError if missing)
+3. Hash workspace path to get project DB filename
+4. Connect to/create project database
+5. Register project in master.db if first access
+6. Update last_accessed in master.db
+7. Execute operation
+8. Return FastMCP-formatted response
+
+**Example Tool Call:**
+```python
+# Correct (v0.4.0+)
+create_task(
+    title="Fix authentication bug",
+    workspace_path="/Users/user/projects/my-app",
+    description="Fix login issue"
+)
+
+# INCORRECT - Will raise ValueError
+create_task(
+    title="Fix authentication bug",
+    description="Fix login issue"  # Missing workspace_path!
+)
+```
 
 ### Tool Categories
 - **Task CRUD**: create_task, update_task, get_task, list_tasks, delete_task
@@ -581,19 +626,20 @@ files = get_task_entities(task_id=123)
 
 ## Common Pitfalls to Avoid
 
-1. **Don't hard-delete tasks or entities**: Always use soft delete (set `deleted_at`)
-2. **Don't forget WAL mode**: Required for concurrent Claude Code + Desktop access
-3. **Don't return deleted tasks/entities**: All queries must filter `WHERE deleted_at IS NULL`
-4. **Don't allow 25k+ token descriptions**: Validate 10k char limit on input (tasks and entities)
-5. **Don't forget master.db updates**: Every operation must update `last_accessed`
-6. **Don't cascade parent blocking**: Subtasks don't automatically block parents
-7. **Don't skip dependency validation**: Check all depends_on tasks before status changes
-8. **Don't forget entity uniqueness**: Check (entity_type, identifier) uniqueness for active entities
-9. **Don't skip cascade on entity delete**: Entity deletion must cascade to all task_entity_links
-10. **Don't validate metadata schemas**: Entity metadata is generic JSON (no schema enforcement)
-11. **Don't ignore workspace metadata**: Always capture workspace context on task creation
-12. **Don't skip validation for old tasks**: Use `validate_task_workspace` before working on existing tasks
-13. **Don't mix project contexts**: Run `audit_workspace_integrity` regularly to detect contamination
+1. **Don't omit workspace_path**: As of v0.4.0, workspace_path is REQUIRED on all tool calls (no auto-detection)
+2. **Don't hard-delete tasks or entities**: Always use soft delete (set `deleted_at`)
+3. **Don't forget WAL mode**: Required for concurrent Claude Code + Desktop access
+4. **Don't return deleted tasks/entities**: All queries must filter `WHERE deleted_at IS NULL`
+5. **Don't allow 25k+ token descriptions**: Validate 10k char limit on input (tasks and entities)
+6. **Don't forget master.db updates**: Every operation must update `last_accessed`
+7. **Don't cascade parent blocking**: Subtasks don't automatically block parents
+8. **Don't skip dependency validation**: Check all depends_on tasks before status changes
+9. **Don't forget entity uniqueness**: Check (entity_type, identifier) uniqueness for active entities
+10. **Don't skip cascade on entity delete**: Entity deletion must cascade to all task_entity_links
+11. **Don't validate metadata schemas**: Entity metadata is generic JSON (no schema enforcement)
+12. **Don't ignore workspace metadata**: Always capture workspace context on task creation
+13. **Don't skip validation for old tasks**: Use `validate_task_workspace` before working on existing tasks
+14. **Don't mix project contexts**: Run `audit_workspace_integrity` regularly to detect contamination
 
 ## Project Goals
 

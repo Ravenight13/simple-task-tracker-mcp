@@ -1,10 +1,6 @@
 """Type stubs for utility functions."""
 
-import hashlib
-import os
-import subprocess
 from pathlib import Path
-from typing import Any
 
 def resolve_workspace(workspace_path: str | None = None) -> str: ...
 def hash_workspace_path(workspace_path: str) -> str: ...

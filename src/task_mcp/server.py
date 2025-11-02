@@ -10,7 +10,7 @@ mcp = FastMCP("Task Tracker")
 
 @mcp.tool()
 def list_tasks(
-    workspace_path: str | None = None,
+    workspace_path: str,
     status: str | None = None,
     priority: str | None = None,
     parent_task_id: int | None = None,
@@ -20,7 +20,7 @@ def list_tasks(
     List tasks with optional filters.
 
     Args:
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
         status: Filter by status
         priority: Filter by priority
         parent_task_id: Filter by parent task ID
@@ -75,8 +75,8 @@ def list_tasks(
 @mcp.tool()
 def create_task(
     title: str,
+    workspace_path: str,
     ctx: Context | None = None,
-    workspace_path: str | None = None,
     description: str | None = None,
     status: str = "todo",
     priority: str = "medium",
@@ -91,8 +91,8 @@ def create_task(
 
     Args:
         title: Task title (required)
+        workspace_path: REQUIRED workspace path
         ctx: FastMCP context (auto-injected, optional for direct calls)
-        workspace_path: Optional workspace path (auto-detected if not provided)
         description: Task description (max 10k chars)
         status: Task status (default: "todo")
         priority: Priority level (default: "medium")
@@ -112,7 +112,7 @@ def create_task(
     from .database import get_connection
     from .master import register_project
     from .models import TaskCreate
-    from .utils import resolve_workspace, validate_description_length, get_workspace_metadata
+    from .utils import get_workspace_metadata, resolve_workspace, validate_description_length
 
     # Auto-register project and update last_accessed
     workspace = resolve_workspace(workspace_path)
@@ -192,14 +192,14 @@ def create_task(
 @mcp.tool()
 def get_task(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Get a single task by ID.
 
     Args:
         task_id: Task ID to retrieve
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Task object with all fields
@@ -237,7 +237,7 @@ def get_task(
 @mcp.tool()
 def update_task(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
     title: str | None = None,
     description: str | None = None,
     status: str | None = None,
@@ -253,7 +253,7 @@ def update_task(
 
     Args:
         task_id: Task ID to update (required)
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
         title: Updated task title
         description: Updated task description (max 10k chars)
         status: Updated task status
@@ -422,14 +422,14 @@ def update_task(
 @mcp.tool()
 def search_tasks(
     search_term: str,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> list[dict[str, Any]]:
     """
     Search tasks by title or description (full-text).
 
     Args:
         search_term: Search term to match in title or description
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
 
     Returns:
         List of matching tasks
@@ -614,14 +614,14 @@ def set_project_name(
 @mcp.tool()
 def get_task_tree(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Get task with all descendant subtasks (recursive).
 
     Args:
         task_id: Root task ID
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Task object with 'subtasks' field containing nested subtasks
@@ -678,7 +678,7 @@ def get_task_tree(
 @mcp.tool()
 def delete_task(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
     cascade: bool = False,
 ) -> dict[str, Any]:
     """
@@ -686,7 +686,7 @@ def delete_task(
 
     Args:
         task_id: Task ID to delete
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
         cascade: If True, also soft-delete all subtasks
 
     Returns:
@@ -746,13 +746,13 @@ def delete_task(
 
 @mcp.tool()
 def get_blocked_tasks(
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> list[dict[str, Any]]:
     """
     Get all tasks with status='blocked' and their blocker reasons.
 
     Args:
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
 
     Returns:
         List of blocked tasks with blocker_reason field
@@ -783,13 +783,13 @@ def get_blocked_tasks(
 
 @mcp.tool()
 def get_next_tasks(
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> list[dict[str, Any]]:
     """
     Get tasks ready to work on (status='todo', no unresolved dependencies).
 
     Args:
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
 
     Returns:
         List of actionable tasks
@@ -846,14 +846,14 @@ def get_next_tasks(
 
 @mcp.tool()
 def cleanup_deleted_tasks(
-    workspace_path: str | None = None,
+    workspace_path: str,
     days: int = 30,
 ) -> dict[str, Any]:
     """
     Permanently delete tasks soft-deleted more than N days ago.
 
     Args:
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
         days: Number of days to retain (default: 30)
 
     Returns:
@@ -902,14 +902,14 @@ def cleanup_deleted_tasks(
 @mcp.tool()
 def get_entity(
     entity_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Get a single entity by ID.
 
     Args:
         entity_id: Entity ID to retrieve
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Entity object with all fields
@@ -948,11 +948,11 @@ def get_entity(
 def create_entity(
     entity_type: str,
     name: str,
+    workspace_path: str,
     ctx: Context | None = None,
-    workspace_path: str | None = None,
     identifier: str | None = None,
     description: str | None = None,
-    metadata: str | dict | list | None = None,
+    metadata: str | dict[Any, Any] | list[Any] | None = None,
     tags: str | None = None,
     created_by: str | None = None,
 ) -> dict[str, Any]:
@@ -962,8 +962,8 @@ def create_entity(
     Args:
         entity_type: 'file' or 'other'
         name: Human-readable name (required)
+        workspace_path: REQUIRED workspace path
         ctx: FastMCP context (auto-injected, optional for direct calls)
-        workspace_path: Optional workspace path (auto-detected if not provided)
         identifier: Unique identifier (file path, vendor code, etc.)
         description: Optional description (max 10k chars)
         metadata: Generic JSON metadata (dict, list, or JSON string)
@@ -977,7 +977,6 @@ def create_entity(
         ValueError: If entity with same (entity_type, identifier) already exists
     """
     # Import at function level
-    import json
     from datetime import datetime
 
     from .database import get_connection
@@ -1004,7 +1003,7 @@ def create_entity(
         name=name,
         identifier=identifier,
         description=description,
-        metadata=metadata,  # Model will convert dict/list to JSON string
+        metadata=metadata,  # type: ignore[arg-type]  # Model validator converts dict/list to JSON string
         tags=tags,
         created_by=created_by,
     )
@@ -1072,7 +1071,7 @@ def create_entity(
 def link_entity_to_task(
     task_id: int,
     entity_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
     ctx: Context | None = None,
     created_by: str | None = None,
 ) -> dict[str, Any]:
@@ -1082,7 +1081,7 @@ def link_entity_to_task(
     Args:
         task_id: Task ID to link
         entity_id: Entity ID to link
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
         ctx: FastMCP context (auto-injected, optional for direct calls)
         created_by: Conversation ID (auto-captured from session if not provided)
 
@@ -1162,7 +1161,7 @@ def link_entity_to_task(
 @mcp.tool()
 def get_task_entities(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> list[dict[str, Any]]:
     """
     Get all entities linked to a task.
@@ -1171,7 +1170,7 @@ def get_task_entities(
 
     Args:
         task_id: Task ID to query
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         List of dicts with entity + link fields:
@@ -1256,7 +1255,7 @@ def get_task_entities(
 @mcp.tool()
 def get_entity_tasks(
     entity_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
     status: str | None = None,
     priority: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -1267,7 +1266,7 @@ def get_entity_tasks(
 
     Args:
         entity_id: Entity ID to query
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
         status: Optional task status filter (todo, in_progress, done, etc.)
         priority: Optional task priority filter (low, medium, high)
 
@@ -1377,12 +1376,12 @@ def get_entity_tasks(
 @mcp.tool()
 def update_entity(
     entity_id: int,
+    workspace_path: str,
     ctx: Context | None = None,
-    workspace_path: str | None = None,
     name: str | None = None,
     identifier: str | None = None,
     description: str | None = None,
-    metadata: str | dict | list | None = None,
+    metadata: str | dict[Any, Any] | list[Any] | None = None,
     tags: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -1393,8 +1392,8 @@ def update_entity(
 
     Args:
         entity_id: Entity ID to update (required)
+        workspace_path: REQUIRED workspace path
         ctx: FastMCP context (auto-injected, optional for direct calls)
-        workspace_path: Optional workspace path (auto-detected if not provided)
         name: Updated name (1-500 chars)
         identifier: Updated identifier (max 1000 chars, must be unique per type)
         description: Updated description (max 10,000 chars)
@@ -1409,13 +1408,13 @@ def update_entity(
 
     Examples:
         >>> # Update entity name
-        >>> update_entity(1, name="New Name")
+        >>> update_entity(1, workspace_path="/path", name="New Name")
 
         >>> # Change identifier (validates uniqueness)
-        >>> update_entity(1, identifier="/new/path/file.py")
+        >>> update_entity(1, workspace_path="/path", identifier="/new/path/file.py")
 
         >>> # Update metadata
-        >>> update_entity(1, metadata={"version": "2.0", "status": "active"})
+        >>> update_entity(1, workspace_path="/path", metadata={"version": "2.0", "status": "active"})
     """
     # Import at function level
     import json
@@ -1542,7 +1541,7 @@ def update_entity(
 @mcp.tool()
 def delete_entity(
     entity_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Soft delete an entity by setting deleted_at timestamp.
@@ -1554,7 +1553,7 @@ def delete_entity(
 
     Args:
         entity_id: Entity ID to delete
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Success dict with:
@@ -1566,7 +1565,7 @@ def delete_entity(
         ValueError: If entity not found or already deleted
 
     Example:
-        >>> delete_entity(entity_id=42)
+        >>> delete_entity(entity_id=42, workspace_path="/path")
         {
             "success": True,
             "entity_id": 42,
@@ -1629,7 +1628,7 @@ def delete_entity(
 
 @mcp.tool()
 def list_entities(
-    workspace_path: str | None = None,
+    workspace_path: str,
     entity_type: str | None = None,
     tags: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -1637,7 +1636,7 @@ def list_entities(
     List entities with optional filters.
 
     Args:
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
         entity_type: Filter by entity type ('file' or 'other')
         tags: Filter by tags (space-separated, partial match)
 
@@ -1687,7 +1686,7 @@ def list_entities(
 @mcp.tool()
 def search_entities(
     search_term: str,
-    workspace_path: str | None = None,
+    workspace_path: str,
     entity_type: str | None = None,
 ) -> list[dict[str, Any]]:
     """
@@ -1695,7 +1694,7 @@ def search_entities(
 
     Args:
         search_term: Text to search for (case-insensitive)
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
         entity_type: Optional filter by entity_type
 
     Returns:
@@ -1743,7 +1742,7 @@ def search_entities(
 @mcp.tool()
 def validate_task_workspace(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Validate if task workspace metadata matches current workspace.
@@ -1753,7 +1752,7 @@ def validate_task_workspace(
 
     Args:
         task_id: Task ID to validate
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Validation result with details:
@@ -1881,7 +1880,7 @@ def validate_task_workspace(
 
 @mcp.tool()
 def audit_workspace_integrity(
-    workspace_path: str | None = None,
+    workspace_path: str,
     include_deleted: bool = False,
     check_git_repo: bool = True,
 ) -> dict[str, Any]:
@@ -1894,7 +1893,7 @@ def audit_workspace_integrity(
     in descriptions pointing to other projects.
 
     Args:
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
         include_deleted: Include soft-deleted tasks/entities in audit (default: False)
         check_git_repo: Validate git repository consistency (default: True)
 
