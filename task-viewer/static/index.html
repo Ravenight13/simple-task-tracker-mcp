@@ -169,8 +169,23 @@
             </div>
           </div>
 
-          <!-- API Key Status -->
+          <!-- Actions: Refresh + API Key Status -->
           <div class="flex items-center gap-3">
+            <!-- Refresh Button -->
+            <button
+              @click="refreshAllData()"
+              :disabled="refreshing"
+              class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="{ 'animate-spin': refreshing }"
+              :title="refreshing ? 'Refreshing...' : 'Refresh all data'"
+              aria-label="Refresh all data"
+            >
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+
+            <!-- API Key Status -->
             <button
               @click="showApiKeyModal = true"
               class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
@@ -608,6 +623,71 @@
       </div>
     </div>
 
+    <!-- Toast Notification -->
+    <div
+      x-show="toast.show"
+      x-cloak
+      x-transition:enter="transition ease-out duration-300"
+      x-transition:enter-start="opacity-0 translate-y-2"
+      x-transition:enter-end="opacity-100 translate-y-0"
+      x-transition:leave="transition ease-in duration-200"
+      x-transition:leave-start="opacity-100 translate-y-0"
+      x-transition:leave-end="opacity-0 translate-y-2"
+      class="fixed bottom-4 right-4 z-50 max-w-sm"
+      role="alert"
+      aria-live="polite"
+    >
+      <div
+        class="rounded-lg shadow-lg p-4 border"
+        :class="{
+          'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800': toast.type === 'success',
+          'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800': toast.type === 'error'
+        }"
+      >
+        <div class="flex items-start">
+          <!-- Success Icon -->
+          <svg
+            x-show="toast.type === 'success'"
+            class="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+
+          <!-- Error Icon -->
+          <svg
+            x-show="toast.type === 'error'"
+            class="h-5 w-5 text-red-400 mt-0.5 flex-shrink-0"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+
+          <div class="ml-3 flex-1">
+            <p
+              class="text-sm font-medium"
+              :class="{
+                'text-green-800 dark:text-green-200': toast.type === 'success',
+                'text-red-800 dark:text-red-200': toast.type === 'error'
+              }"
+              x-text="toast.message"
+            ></p>
+          </div>
+
+          <button
+            @click="toast.show = false"
+            class="ml-3 flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Alpine.js Application Logic -->
@@ -641,6 +721,12 @@
         loading: false,
         error: null,
         showModal: false,
+        refreshing: false,
+        toast: {
+          show: false,
+          type: 'success',
+          message: ''
+        },
 
         // Lifecycle
         async init() {
@@ -725,6 +811,84 @@
         async selectProject(project) {
           this.currentProject = project;
           await this.loadTasks();
+        },
+
+        async refreshAllData() {
+          if (this.refreshing) return;
+
+          this.refreshing = true;
+          this.error = null;
+
+          try {
+            // Fetch projects
+            const projectsResponse = await fetch(`${API_CONFIG.baseUrl}/projects`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!projectsResponse.ok) {
+              throw new Error(`Failed to refresh projects: ${projectsResponse.statusText}`);
+            }
+
+            const projectsData = await projectsResponse.json();
+            this.projects = projectsData.projects || [];
+
+            // Refresh tasks if a project is selected
+            if (this.currentProject) {
+              // Re-select current project to ensure it's still in the list
+              const updatedProject = this.projects.find(p => p.id === this.currentProject.id);
+              if (updatedProject) {
+                this.currentProject = updatedProject;
+
+                // Fetch tasks
+                const params = new URLSearchParams({
+                  project_id: this.currentProject.id,
+                });
+
+                const tasksResponse = await fetch(`${API_CONFIG.baseUrl}/tasks?${params}`, {
+                  headers: { 'X-API-Key': this.apiKey }
+                });
+
+                if (!tasksResponse.ok) {
+                  throw new Error(`Failed to refresh tasks: ${tasksResponse.statusText}`);
+                }
+
+                const tasksData = await tasksResponse.json();
+                this.tasks = tasksData.tasks || [];
+                this.applyFilters();
+              } else {
+                // Current project no longer exists
+                this.currentProject = this.projects.length > 0 ? this.projects[0] : null;
+                if (this.currentProject) {
+                  await this.loadTasks();
+                } else {
+                  this.tasks = [];
+                  this.filteredTasks = [];
+                  this.updateStatusCounts();
+                }
+              }
+            }
+
+            this.showToast('success', 'Data refreshed successfully');
+          } catch (err) {
+            this.error = err.message;
+            this.showToast('error', `Refresh failed: ${err.message}`);
+            console.error('Error refreshing data:', err);
+          } finally {
+            this.refreshing = false;
+          }
+        },
+
+        showToast(type, message) {
+          this.toast = {
+            show: true,
+            type,
+            message
+          };
+
+          // Auto-hide after 3 seconds
+          setTimeout(() => {
+            this.toast.show = false;
+          }, 3000);
         },
 
         // Filter Methods (client-side for instant response)
