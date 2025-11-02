@@ -19,7 +19,6 @@ search_tasks = server.search_tasks.fn
 delete_task = server.delete_task.fn
 get_task_tree = server.get_task_tree.fn
 get_blocked_tasks = server.get_blocked_tasks.fn
-get_next_tasks = server.get_next_tasks.fn
 cleanup_deleted_tasks = server.cleanup_deleted_tasks.fn
 list_projects = server.list_projects.fn
 get_project_info = server.get_project_info.fn
@@ -185,41 +184,6 @@ class TestAdvancedQueries:
         assert len(blocked) == 1
         assert blocked[0]["status"] == "blocked"
         assert blocked[0]["blocker_reason"] == "Waiting for API key"
-
-    def test_get_next_tasks(self, test_workspace: str) -> None:
-        """Test getting actionable tasks."""
-        # Create tasks with dependencies
-        task1 = create_task(title="Task 1", status="done", workspace_path=test_workspace)
-        create_task(
-            title="Task 2",
-            status="todo",
-            depends_on=[task1["id"]],
-            workspace_path=test_workspace,
-        )
-        create_task(title="Task 3", status="todo", workspace_path=test_workspace)
-
-        next_tasks = get_next_tasks(test_workspace)
-
-        # Task 2 and Task 3 should be actionable
-        titles = {t["title"] for t in next_tasks}
-        assert "Task 2" in titles  # Dependency satisfied
-        assert "Task 3" in titles  # No dependencies
-
-    def test_get_next_tasks_filters_unresolved_dependencies(self, test_workspace: str) -> None:
-        """Test next tasks excludes tasks with incomplete dependencies."""
-        task1 = create_task(title="Task 1", status="todo", workspace_path=test_workspace)
-        create_task(
-            title="Task 2",
-            status="todo",
-            depends_on=[task1["id"]],
-            workspace_path=test_workspace,
-        )
-
-        next_tasks = get_next_tasks(test_workspace)
-
-        # Only Task 1 should be actionable
-        assert len(next_tasks) == 1
-        assert next_tasks[0]["title"] == "Task 1"
 
 
 class TestSoftDelete:
