@@ -1237,9 +1237,18 @@
           this.error = null;
 
           try {
-            // Fetch projects
-            const projectsResponse = await fetch(`${API_CONFIG.baseUrl}/projects`, {
-              headers: { 'X-API-Key': this.apiKey }
+            // Clear caches
+            this.subtasksCache = {};
+            this.expandedSubtasks = {};
+            this.loadingSubtasks = {};
+
+            // Fetch projects with cache-busting
+            const projectsResponse = await fetch(`${API_CONFIG.baseUrl}/projects?_t=${Date.now()}`, {
+              headers: {
+                'X-API-Key': this.apiKey,
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              }
             });
 
             if (!projectsResponse.ok) {
@@ -1256,14 +1265,19 @@
               if (updatedProject) {
                 this.currentProject = updatedProject;
 
-                // Fetch tasks
+                // Fetch tasks with cache-busting
                 const params = new URLSearchParams({
                   project_id: this.currentProject.id,
                   limit: '100',  // Increase limit to load more tasks (max is 100)
+                  _t: Date.now()  // Cache busting
                 });
 
                 const tasksResponse = await fetch(`${API_CONFIG.baseUrl}/tasks?${params}`, {
-                  headers: { 'X-API-Key': this.apiKey }
+                  headers: {
+                    'X-API-Key': this.apiKey,
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                  }
                 });
 
                 if (!tasksResponse.ok) {
