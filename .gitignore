@@ -49,6 +49,7 @@ uv.lock
 htmlcov/
 .tox/
 .hypothesis/
+test-results/
 
 # Task MCP specific
 .task-mcp/
@@ -63,3 +64,4 @@ htmlcov/
 .env
 .env.local
 task-viewer/.env
+node_modules/

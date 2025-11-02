@@ -9,6 +9,7 @@ This is Phase 1: Read-only viewer (no create/update/delete operations).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -427,6 +428,40 @@ async def list_tasks(
     # Call task-mcp
     tasks_data = await mcp_service.call_tool("list_tasks", args)
 
+    # Add blocker detection logic
+    # Build a map of which tasks are blocked by which tasks
+    blocker_map = {}  # task_id -> [list of task_ids it blocks]
+
+    for task in tasks_data:
+        task_id = task.get("id")
+        depends_on = task.get("depends_on")
+
+        # Parse depends_on (could be JSON string or list)
+        if depends_on:
+            try:
+                if isinstance(depends_on, str):
+                    dep_list = json.loads(depends_on)
+                else:
+                    dep_list = depends_on
+
+                # For each dependency, mark it as a blocker
+                for dep_id in dep_list:
+                    if dep_id not in blocker_map:
+                        blocker_map[dep_id] = []
+                    blocker_map[dep_id].append(task_id)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    # Enhance tasks with blocker metadata
+    for task in tasks_data:
+        task_id = task.get("id")
+        if task_id in blocker_map:
+            task["is_blocker"] = True
+            task["blocks_task_ids"] = blocker_map[task_id]
+        else:
+            task["is_blocker"] = False
+            task["blocks_task_ids"] = []
+
     # Apply pagination
     total = len(tasks_data)
     paginated_tasks = tasks_data[offset : offset + limit]
@@ -464,6 +499,42 @@ async def list_tasks(
         filters=filters if filters else None,
         meta=meta,
     )
+
+
+@app.get("/api/tasks/{task_id}/tree", response_model=TaskResponse)
+async def get_task_tree(
+    task_id: int,
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+):
+    """
+    Get a task with all descendant subtasks (recursive tree).
+
+    Args:
+        task_id: Root task ID
+        project_id: Optional project hint for workspace resolution
+
+    Returns:
+        Task object with 'subtasks' field containing nested subtasks
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Call task-mcp
+    task_tree = await mcp_service.call_tool(
+        "get_task_tree", {"task_id": task_id, "workspace_path": resolved_workspace}
+    )
+
+    if not task_tree:
+        raise ValueError(f"Task with ID {task_id} not found or deleted")
+
+    return TaskResponse(**task_tree)
 
 
 @app.get("/api/tasks/{task_id}", response_model=TaskResponse)

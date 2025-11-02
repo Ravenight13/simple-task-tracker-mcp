@@ -31,6 +31,7 @@ class TaskResponse(BaseModel):
     updated_at: datetime
     completed_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
+    subtasks: Optional[list[TaskResponse]] = None  # For tree endpoint
 
     class Config:
         from_attributes = True

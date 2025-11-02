@@ -39,8 +39,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Alpine.js with Focus plugin for modal focus trapping -->
+  <!-- Alpine.js with Focus and Collapse plugins -->
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
   <!-- API Configuration -->
@@ -169,8 +170,23 @@
             </div>
           </div>
 
-          <!-- API Key Status -->
+          <!-- Actions: Refresh + API Key Status -->
           <div class="flex items-center gap-3">
+            <!-- Refresh Button -->
+            <button
+              @click="refreshAllData()"
+              :disabled="refreshing"
+              class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="{ 'animate-spin': refreshing }"
+              :title="refreshing ? 'Refreshing...' : 'Refresh all data'"
+              aria-label="Refresh all data"
+            >
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+
+            <!-- API Key Status -->
             <button
               @click="showApiKeyModal = true"
               class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
@@ -189,15 +205,99 @@
     <!-- Filters Bar -->
     <div class="sticky top-16 z-30 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <!-- Smart Filters -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Filters:</span>
+
+          <button
+            @click="applySmartFilter('my-focus')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'my-focus'
+              ? 'bg-purple-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-gray-600'"
+            title="High priority + In Progress tasks"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span>My Focus</span>
+          </button>
+
+          <button
+            @click="applySmartFilter('ready-to-work')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'ready-to-work'
+              ? 'bg-green-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-gray-600'"
+            title="Todo tasks with no blockers"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Ready to Work</span>
+          </button>
+
+          <button
+            @click="applySmartFilter('blocked-work')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'blocked-work'
+              ? 'bg-red-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-gray-600'"
+            title="Blocked tasks OR tasks blocking others"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+            </svg>
+            <span>Blocked Work</span>
+          </button>
+
+          <button
+            @click="applySmartFilter('recently-completed')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'recently-completed'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'"
+            title="Recently completed tasks"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+            <span>Recently Completed</span>
+          </button>
+
+          <button
+            @click="applySmartFilter('parent-tasks')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'parent-tasks'
+              ? 'bg-cyan-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-cyan-50 dark:hover:bg-gray-600'"
+            title="Only show parent tasks (no subtasks)"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <span>Parent Tasks</span>
+          </button>
+
+          <button
+            x-show="activeSmartFilter"
+            @click="clearSmartFilter()"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+            title="Clear smart filter"
+          >
+            <span>Clear Filter</span>
+          </button>
+        </div>
+
         <!-- Status chips with counts -->
         <div class="flex flex-wrap items-center gap-2 mb-3">
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
 
           <template x-for="status in ['all', 'todo', 'in_progress', 'done', 'blocked']" :key="status">
             <button
-              @click="statusFilter = status; applyFilters()"
+              @click="statusFilter = status; activeSmartFilter = null; applyFilters()"
               class="px-3 py-1 rounded-full text-sm font-medium transition-colors"
-              :class="statusFilter === status
+              :class="statusFilter === status && !activeSmartFilter
                 ? 'bg-blue-600 text-white'
                 : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'"
               :aria-pressed="statusFilter === status"
@@ -257,32 +357,53 @@
           <div class="relative" x-data="{ open: false }">
             <button
               @click="open = !open"
-              class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors flex items-center gap-2"
               :aria-expanded="open"
             >
-              Sort
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+              <span>Sort</span>
+              <svg class="h-4 w-4" :class="{ 'rotate-180': sortOrder === 'desc' }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+              </svg>
             </button>
 
             <div
               x-show="open"
               @click.away="open = false"
               x-transition
-              class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10"
+              class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10"
             >
+              <div class="p-2 border-b border-gray-200 dark:border-gray-600">
+                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase px-2 py-1">Sort By</p>
+              </div>
               <template x-for="option in [
-                { value: 'created_desc', label: 'Newest first' },
-                { value: 'created_asc', label: 'Oldest first' },
-                { value: 'priority_desc', label: 'Priority (high to low)' },
-                { value: 'title_asc', label: 'Title (A-Z)' }
+                { value: 'priority', label: 'Priority' },
+                { value: 'status', label: 'Status' },
+                { value: 'created', label: 'Creation Date' },
+                { value: 'title', label: 'Title' }
               ]" :key="option.value">
                 <button
-                  @click="sortBy = option.value; applyFilters(); open = false"
-                  class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors"
-                  :class="{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }"
+                  @click="setSortBy(option.value); open = false"
+                  class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors flex items-center justify-between"
+                  :class="{ 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200': sortBy === option.value + '_' + sortOrder }"
                 >
                   <span x-text="option.label"></span>
+                  <svg x-show="sortBy === option.value + '_' + sortOrder" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
                 </button>
               </template>
+              <div class="p-2 border-t border-gray-200 dark:border-gray-600">
+                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase px-2 py-1">Order</p>
+              </div>
+              <button
+                @click="toggleSortOrder(); open = false"
+                class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors"
+              >
+                <span x-text="sortOrder === 'desc' ? '↓ Descending' : '↑ Ascending'"></span>
+              </button>
             </div>
           </div>
         </div>
@@ -352,21 +473,48 @@
         x-show="!loading && !error && (filteredTasks || []).length > 0"
         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
-        <template x-for="task in filteredTasks" :key="task.id">
+        <template x-for="(task, index) in filteredTasks" :key="task.id">
           <div
+            x-data="{ showPreview: false, hoverTimeout: null }"
             @click="openTaskDetail(task)"
-            class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600"
+            class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 relative"
             role="button"
             tabindex="0"
             @keydown.enter="openTaskDetail(task)"
             @keydown.space.prevent="openTaskDetail(task)"
           >
-            <!-- Header: Title + Status Badge -->
-            <div class="flex items-start justify-between gap-3">
-              <h3 class="flex-1 font-semibold text-gray-900 dark:text-gray-100 leading-snug" x-text="task?.title || 'Untitled'"></h3>
+            <!-- Row 1: Task Title (Clean and Prominent) -->
+            <div
+              class="relative"
+              @mouseenter="hoverTimeout = setTimeout(() => showPreview = true, 500)"
+              @mouseleave="clearTimeout(hoverTimeout); showPreview = false"
+            >
+              <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight pr-2" x-text="task?.title || 'Untitled'"></h3>
 
+              <!-- Hover Preview Tooltip -->
+              <div
+                x-show="showPreview && task?.description"
+                x-transition
+                class="absolute z-50 top-full left-0 mt-2 w-80 bg-gray-900 dark:bg-gray-700 text-white dark:text-gray-100 text-sm rounded-lg shadow-lg p-3 pointer-events-none"
+                style="max-width: calc(100vw - 2rem);"
+              >
+                <div class="font-semibold mb-1">Description Preview:</div>
+                <div class="text-gray-200 dark:text-gray-300" x-text="(task?.description || '').substring(0, 200) + ((task?.description || '').length > 200 ? '...' : '')"></div>
+              </div>
+            </div>
+
+            <!-- Row 2: Description (truncated) -->
+            <p
+              x-show="task?.description"
+              class="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
+              x-text="task?.description"
+            ></p>
+
+            <!-- Row 3: Status + Priority Badges -->
+            <div class="mt-3 flex items-center gap-2">
+              <!-- Status Badge -->
               <span
-                class="flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                class="px-2.5 py-0.5 rounded-full text-xs font-medium"
                 :class="{
                   'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': task?.status === 'todo',
                   'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': task?.status === 'in_progress',
@@ -375,38 +523,190 @@
                 }"
                 x-text="task?.status ? task.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
               ></span>
+
+              <!-- Priority badge -->
+              <span
+                class="px-2 py-0.5 rounded text-xs font-medium"
+                :class="{
+                  'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': task?.priority === 'low',
+                  'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': task?.priority === 'medium',
+                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.priority === 'high'
+                }"
+                x-text="task?.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'N/A'"
+              ></span>
             </div>
 
-            <!-- Description (truncated) -->
-            <p
-              class="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
-              x-text="task?.description || 'No description provided'"
-            ></p>
+            <!-- Row 4: Position, Parent Task, Dependencies, Blocker Badges (Grouped) -->
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <!-- Position Number Badge -->
+              <div class="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-medium">
+                <span x-text="'#' + (index + 1)"></span>
+              </div>
 
-            <!-- Footer: Priority + Metadata -->
-            <div class="mt-3 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <!-- Priority badge -->
+              <!-- Parent Task Badge (if this is a subtask) -->
+              <div
+                x-show="task?.parent_task_id"
+                class="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-xs font-medium border border-indigo-200 dark:border-indigo-700"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <span>Subtask of:</span>
                 <span
-                  class="px-2 py-0.5 rounded text-xs font-medium"
-                  :class="{
-                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': task?.priority === 'low',
-                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': task?.priority === 'medium',
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.priority === 'high'
-                  }"
-                  x-text="task?.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'N/A'"
+                  x-text="getParentTask(task.parent_task_id)?.title || `Task #${task.parent_task_id}`"
+                  class="font-semibold truncate max-w-[120px]"
+                  :title="getParentTask(task.parent_task_id)?.title"
                 ></span>
+              </div>
 
+              <!-- Dependencies Badge -->
+              <div
+                x-show="task?.depends_on && (() => { try { return JSON.parse(task.depends_on || '[]').length > 0; } catch { return false; } })()"
+                class="flex items-center gap-1 px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-xs font-medium border border-amber-200 dark:border-amber-700"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span>
+                  Depends:
+                  <span
+                    x-text="(() => { try { const deps = JSON.parse(task.depends_on || '[]'); return deps.map(id => `#${id}`).join(', '); } catch { return ''; } })()"
+                    class="font-semibold"
+                  ></span>
+                </span>
+              </div>
+
+              <!-- Blocker Indicator (Red) - Shows when this task blocks other tasks -->
+              <div
+                x-show="task?.is_blocker"
+                class="flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium border border-red-200 dark:border-red-700"
+                :title="`Blocks ${(task?.blocks_task_ids || []).length} task${(task?.blocks_task_ids || []).length !== 1 ? 's' : ''}`"
+              >
+                <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+                </svg>
+                <span>Blocks <span x-text="(task?.blocks_task_ids || []).length"></span></span>
+              </div>
+            </div>
+
+            <!-- Row 5: Subtasks Indicator -->
+            <div
+              x-show="countSubtasks(task) > 0"
+              class="mt-2"
+            >
+              <button
+                @click.stop="toggleSubtasks(task, $event)"
+                class="flex items-center gap-1 px-2 py-1 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded text-xs font-medium border border-purple-200 dark:border-purple-700 transition-colors"
+                :class="{ 'bg-purple-100 dark:bg-purple-900/50': expandedSubtasks[task.id] }"
+              >
+                <svg class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-90': expandedSubtasks[task.id] }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span x-show="!expandedSubtasks[task.id]">Show <span x-text="countSubtasks(task)"></span> subtask<span x-show="countSubtasks(task) !== 1">s</span></span>
+                <span x-show="expandedSubtasks[task.id]">Hide subtasks</span>
+              </button>
+            </div>
+
+            <!-- Expanded Subtasks -->
+            <div
+              x-show="expandedSubtasks[task.id]"
+              x-collapse
+              class="mt-3 space-y-2 border-l-2 border-purple-300 dark:border-purple-700 pl-3"
+            >
+              <!-- Loading state -->
+              <div x-show="loadingSubtasks[task.id]" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Loading subtasks...</span>
+              </div>
+
+              <!-- Subtask cards -->
+              <template x-for="subtask in (subtasksCache[task.id] || [])" :key="subtask.id">
+                <div
+                  @click.stop="openTaskDetail(subtask)"
+                  class="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-600 cursor-pointer transition-colors"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="flex-1 min-w-0">
+                      <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" x-text="subtask?.title || 'Untitled'"></h4>
+                      <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1" x-text="subtask?.description || 'No description'"></p>
+                    </div>
+                    <span
+                      class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
+                      :class="{
+                        'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': subtask?.status === 'todo',
+                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': subtask?.status === 'in_progress',
+                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': subtask?.status === 'done',
+                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': subtask?.status === 'blocked'
+                      }"
+                      x-text="subtask?.status ? subtask.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
+                    ></span>
+                  </div>
+                  <div class="mt-1 flex items-center gap-2">
+                    <span
+                      class="text-xs px-1.5 py-0.5 rounded"
+                      :class="{
+                        'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300': subtask?.priority === 'low',
+                        'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': subtask?.priority === 'medium',
+                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': subtask?.priority === 'high'
+                      }"
+                      x-text="subtask?.priority || 'N/A'"
+                    ></span>
+                    <span
+                      x-show="subtask?.is_blocker"
+                      class="inline-block w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full"
+                      title="Blocks other tasks"
+                    ></span>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">Task #<span x-text="subtask.id"></span></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Metadata Row -->
+            <div class="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <div class="flex items-center gap-2">
                 <!-- Tags (if present) -->
                 <span
                   x-show="task?.tags"
-                  class="text-xs text-gray-500 dark:text-gray-400 truncate"
+                  class="truncate"
                   x-text="task?.tags?.split(' ')[0] || ''"
                 ></span>
               </div>
 
               <!-- Created date -->
-              <span class="text-xs text-gray-500 dark:text-gray-400" x-text="formatRelativeTime(task?.created_at)"></span>
+              <span x-text="formatRelativeTime(task?.created_at)"></span>
+            </div>
+
+            <!-- Quick Actions Bar -->
+            <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2">
+              <button
+                @click="copyTaskId(task, $event)"
+                class="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                title="Copy task ID to clipboard"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                </svg>
+                <span>Copy ID</span>
+              </button>
+
+              <button
+                @click="copyTaskDetails(task, $event)"
+                class="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                title="Copy task details to clipboard"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>Copy Details</span>
+              </button>
+
+              <div class="flex-1"></div>
+
+              <span class="text-xs text-gray-400 dark:text-gray-500">Task #<span x-text="task.id"></span></span>
             </div>
           </div>
         </template>
@@ -494,10 +794,22 @@
                 <p class="mt-2 text-gray-600 dark:text-gray-400 whitespace-pre-wrap" x-text="selectedTask?.description || 'No description'"></p>
               </div>
 
-              <!-- Blocker reason (if blocked) -->
+              <!-- Blocker reason (if this task is blocked) -->
               <div class="mt-6" x-show="selectedTask?.status === 'blocked' && selectedTask?.blocker_reason">
                 <h3 class="text-sm font-semibold text-red-700 dark:text-red-300">Blocker Reason</h3>
                 <p class="mt-2 text-red-600 dark:text-red-400" x-text="selectedTask?.blocker_reason || ''"></p>
+              </div>
+
+              <!-- Blocker info (if this task blocks other tasks) -->
+              <div class="mt-6" x-show="selectedTask?.is_blocker && (selectedTask?.blocks_task_ids || []).length > 0">
+                <h3 class="text-sm font-semibold text-red-700 dark:text-red-300">Blocking Tasks</h3>
+                <p class="mt-2 text-red-600 dark:text-red-400">
+                  This task blocks <span x-text="(selectedTask?.blocks_task_ids || []).length"></span> other task<span x-show="(selectedTask?.blocks_task_ids || []).length !== 1">s</span>
+                  (IDs: <span x-text="(selectedTask?.blocks_task_ids || []).join(', ')"></span>)
+                </p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400 italic">
+                  Completing this task will unblock the listed tasks.
+                </p>
               </div>
 
               <!-- Metadata grid -->
@@ -608,6 +920,71 @@
       </div>
     </div>
 
+    <!-- Toast Notification -->
+    <div
+      x-show="toast.show"
+      x-cloak
+      x-transition:enter="transition ease-out duration-300"
+      x-transition:enter-start="opacity-0 translate-y-2"
+      x-transition:enter-end="opacity-100 translate-y-0"
+      x-transition:leave="transition ease-in duration-200"
+      x-transition:leave-start="opacity-100 translate-y-0"
+      x-transition:leave-end="opacity-0 translate-y-2"
+      class="fixed bottom-4 right-4 z-50 max-w-sm"
+      role="alert"
+      aria-live="polite"
+    >
+      <div
+        class="rounded-lg shadow-lg p-4 border"
+        :class="{
+          'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800': toast.type === 'success',
+          'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800': toast.type === 'error'
+        }"
+      >
+        <div class="flex items-start">
+          <!-- Success Icon -->
+          <svg
+            x-show="toast.type === 'success'"
+            class="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+
+          <!-- Error Icon -->
+          <svg
+            x-show="toast.type === 'error'"
+            class="h-5 w-5 text-red-400 mt-0.5 flex-shrink-0"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+
+          <div class="ml-3 flex-1">
+            <p
+              class="text-sm font-medium"
+              :class="{
+                'text-green-800 dark:text-green-200': toast.type === 'success',
+                'text-red-800 dark:text-red-200': toast.type === 'error'
+              }"
+              x-text="toast.message"
+            ></p>
+          </div>
+
+          <button
+            @click="toast.show = false"
+            class="ml-3 flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Alpine.js Application Logic -->
@@ -631,16 +1008,29 @@
           blocked: 0
         },
 
+        // Hierarchy state
+        expandedSubtasks: {},  // { taskId: boolean }
+        subtasksCache: {},     // { taskId: subtasks[] }
+        loadingSubtasks: {},   // { taskId: boolean }
+
         // Filters
         statusFilter: 'all',
         priorityFilter: 'all',
         searchQuery: '',
-        sortBy: 'created_desc',
+        sortBy: localStorage.getItem('taskSortBy') || 'priority_desc',
+        sortOrder: localStorage.getItem('taskSortOrder') || 'desc',
+        activeSmartFilter: null,
 
         // UI State
         loading: false,
         error: null,
         showModal: false,
+        refreshing: false,
+        toast: {
+          show: false,
+          type: 'success',
+          message: ''
+        },
 
         // Lifecycle
         async init() {
@@ -727,6 +1117,163 @@
           await this.loadTasks();
         },
 
+        async refreshAllData() {
+          if (this.refreshing) return;
+
+          this.refreshing = true;
+          this.error = null;
+
+          try {
+            // Fetch projects
+            const projectsResponse = await fetch(`${API_CONFIG.baseUrl}/projects`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!projectsResponse.ok) {
+              throw new Error(`Failed to refresh projects: ${projectsResponse.statusText}`);
+            }
+
+            const projectsData = await projectsResponse.json();
+            this.projects = projectsData.projects || [];
+
+            // Refresh tasks if a project is selected
+            if (this.currentProject) {
+              // Re-select current project to ensure it's still in the list
+              const updatedProject = this.projects.find(p => p.id === this.currentProject.id);
+              if (updatedProject) {
+                this.currentProject = updatedProject;
+
+                // Fetch tasks
+                const params = new URLSearchParams({
+                  project_id: this.currentProject.id,
+                });
+
+                const tasksResponse = await fetch(`${API_CONFIG.baseUrl}/tasks?${params}`, {
+                  headers: { 'X-API-Key': this.apiKey }
+                });
+
+                if (!tasksResponse.ok) {
+                  throw new Error(`Failed to refresh tasks: ${tasksResponse.statusText}`);
+                }
+
+                const tasksData = await tasksResponse.json();
+                this.tasks = tasksData.tasks || [];
+                this.applyFilters();
+              } else {
+                // Current project no longer exists
+                this.currentProject = this.projects.length > 0 ? this.projects[0] : null;
+                if (this.currentProject) {
+                  await this.loadTasks();
+                } else {
+                  this.tasks = [];
+                  this.filteredTasks = [];
+                  this.updateStatusCounts();
+                }
+              }
+            }
+
+            this.showToast('success', 'Data refreshed successfully');
+          } catch (err) {
+            this.error = err.message;
+            this.showToast('error', `Refresh failed: ${err.message}`);
+            console.error('Error refreshing data:', err);
+          } finally {
+            this.refreshing = false;
+          }
+        },
+
+        showToast(type, message) {
+          this.toast = {
+            show: true,
+            type,
+            message
+          };
+
+          // Auto-hide after 3 seconds
+          setTimeout(() => {
+            this.toast.show = false;
+          }, 3000);
+        },
+
+        // Smart Filter Methods
+        applySmartFilter(filterName) {
+          // Clear active smart filter when manually changing filters
+          if (this.activeSmartFilter) {
+            this.activeSmartFilter = null;
+          }
+
+          // Reset manual filters when applying smart filter
+          this.statusFilter = 'all';
+          this.priorityFilter = 'all';
+          this.searchQuery = '';
+
+          switch (filterName) {
+            case 'my-focus':
+              this.statusFilter = 'in_progress';
+              this.priorityFilter = 'high';
+              this.activeSmartFilter = 'my-focus';
+              break;
+            case 'ready-to-work':
+              this.statusFilter = 'todo';
+              this.activeSmartFilter = 'ready-to-work';
+              break;
+            case 'blocked-work':
+              this.statusFilter = 'blocked';
+              this.activeSmartFilter = 'blocked-work';
+              break;
+            case 'recently-completed':
+              this.statusFilter = 'done';
+              this.setSortBy('created');
+              this.sortOrder = 'desc';
+              this.activeSmartFilter = 'recently-completed';
+              break;
+            case 'parent-tasks':
+              this.activeSmartFilter = 'parent-tasks';
+              break;
+            default:
+              this.activeSmartFilter = null;
+          }
+
+          this.applyFilters();
+        },
+
+        clearSmartFilter() {
+          this.activeSmartFilter = null;
+          this.statusFilter = 'all';
+          this.priorityFilter = 'all';
+          this.searchQuery = '';
+          this.applyFilters();
+        },
+
+        // Quick Actions (clipboard operations)
+        async copyTaskId(task, event) {
+          event.stopPropagation();
+          try {
+            await navigator.clipboard.writeText(String(task.id));
+            this.showToast('success', `Task ID ${task.id} copied to clipboard`);
+          } catch (err) {
+            console.error('Failed to copy task ID:', err);
+            this.showToast('error', 'Failed to copy task ID');
+          }
+        },
+
+        async copyTaskDetails(task, event) {
+          event.stopPropagation();
+          try {
+            const details = `Task #${task.id}: ${task.title}
+Status: ${task.status}
+Priority: ${task.priority}
+${task.description ? 'Description: ' + task.description : ''}
+Created: ${this.formatDate(task.created_at)}`;
+
+            await navigator.clipboard.writeText(details);
+            this.showToast('success', 'Task details copied to clipboard');
+          } catch (err) {
+            console.error('Failed to copy task details:', err);
+            this.showToast('error', 'Failed to copy task details');
+          }
+        },
+
         // Filter Methods (client-side for instant response)
         applyFilters() {
           let filtered = [...(this.tasks || [])];
@@ -741,6 +1288,27 @@
             filtered = filtered.filter(t => t?.priority === this.priorityFilter);
           }
 
+          // Smart filter specific logic
+          if (this.activeSmartFilter === 'ready-to-work') {
+            // Exclude blockers from "Ready to Work"
+            filtered = filtered.filter(t => !t?.is_blocker && t?.status === 'todo');
+          }
+
+          if (this.activeSmartFilter === 'blocked-work') {
+            // Include both blocked status AND blocker tasks
+            filtered = this.tasks.filter(t => t?.status === 'blocked' || t?.is_blocker);
+          }
+
+          if (this.activeSmartFilter === 'parent-tasks') {
+            // Show tasks that ARE parents (have at least one child task)
+            const allTasks = this.tasks || [];
+            filtered = filtered.filter(t => {
+              // Count children for this task
+              const childCount = allTasks.filter(child => child?.parent_task_id === t?.id).length;
+              return childCount > 0;
+            });
+          }
+
           // Search filter
           if (this.searchQuery && this.searchQuery.trim()) {
             const query = this.searchQuery.toLowerCase();
@@ -752,24 +1320,58 @@
           }
 
           // Sort
-          filtered.sort((a, b) => {
-            switch (this.sortBy) {
-              case 'created_desc':
-                return new Date(b?.created_at || 0) - new Date(a?.created_at || 0);
-              case 'created_asc':
-                return new Date(a?.created_at || 0) - new Date(b?.created_at || 0);
-              case 'priority_desc':
-                const priorityOrder = { high: 3, medium: 2, low: 1 };
-                return (priorityOrder[b?.priority] || 0) - (priorityOrder[a?.priority] || 0);
-              case 'title_asc':
-                return (a?.title || '').localeCompare(b?.title || '');
-              default:
-                return 0;
-            }
-          });
+          this.sortTasks(filtered);
 
           this.filteredTasks = filtered;
           this.updateStatusCounts();
+        },
+
+        sortTasks(tasks) {
+          const priorityOrder = { high: 3, medium: 2, low: 1 };
+          const statusOrder = { todo: 1, in_progress: 2, blocked: 3, done: 4 };
+
+          tasks.sort((a, b) => {
+            let result = 0;
+
+            // Extract sort type from sortBy (e.g., 'priority_desc' -> 'priority')
+            const sortType = this.sortBy.split('_')[0];
+
+            switch (sortType) {
+              case 'priority':
+                result = (priorityOrder[a?.priority] || 0) - (priorityOrder[b?.priority] || 0);
+                break;
+              case 'status':
+                result = (statusOrder[a?.status] || 0) - (statusOrder[b?.status] || 0);
+                break;
+              case 'created':
+                result = new Date(a?.created_at || 0) - new Date(b?.created_at || 0);
+                break;
+              case 'title':
+                result = (a?.title || '').localeCompare(b?.title || '');
+                break;
+              default:
+                return 0;
+            }
+
+            // Apply sort order (asc/desc)
+            return this.sortOrder === 'desc' ? -result : result;
+          });
+        },
+
+        setSortBy(sortType) {
+          this.sortBy = sortType + '_' + this.sortOrder;
+          localStorage.setItem('taskSortBy', this.sortBy);
+          this.applyFilters();
+        },
+
+        toggleSortOrder() {
+          this.sortOrder = this.sortOrder === 'desc' ? 'asc' : 'desc';
+          localStorage.setItem('taskSortOrder', this.sortOrder);
+          // Update sortBy to include new order
+          const sortType = this.sortBy.split('_')[0];
+          this.sortBy = sortType + '_' + this.sortOrder;
+          localStorage.setItem('taskSortBy', this.sortBy);
+          this.applyFilters();
         },
 
         // UI Methods
@@ -834,6 +1436,63 @@
           if (diffHours < 24) return `${diffHours}h ago`;
           if (diffDays < 7) return `${diffDays}d ago`;
           return this.formatDate(dateString);
+        },
+
+        // Hierarchy Methods
+        async toggleSubtasks(task, event) {
+          // Note: event.stopPropagation() not needed because we use @click.stop in the template
+          const taskId = task.id;
+
+          // Toggle expansion state
+          this.expandedSubtasks[taskId] = !this.expandedSubtasks[taskId];
+
+          // If expanding and we don't have subtasks cached, fetch them
+          if (this.expandedSubtasks[taskId] && !this.subtasksCache[taskId]) {
+            this.loadingSubtasks[taskId] = true;
+
+            try {
+              const params = new URLSearchParams({
+                project_id: this.currentProject.id,
+              });
+
+              const response = await fetch(`${API_CONFIG.baseUrl}/tasks/${taskId}/tree?${params}`, {
+                headers: { 'X-API-Key': this.apiKey }
+              });
+
+              if (!response.ok) {
+                throw new Error(`Failed to load subtasks: ${response.statusText}`);
+              }
+
+              const data = await response.json();
+              // API returns task with 'subtasks' field containing nested subtasks array
+              this.subtasksCache[taskId] = data?.subtasks || [];
+            } catch (err) {
+              console.error('Error loading subtasks:', err);
+              this.showToast('error', `Failed to load subtasks: ${err.message}`);
+              this.expandedSubtasks[taskId] = false;
+            } finally {
+              this.loadingSubtasks[taskId] = false;
+            }
+          }
+        },
+
+        getParentTask(parentId) {
+          return this.tasks.find(t => t.id === parentId);
+        },
+
+        countSubtasks(task) {
+          // Count direct children in tasks array
+          return this.tasks.filter(t => t.parent_task_id === task.id).length;
+        },
+
+        getDependentTasks(dependsOn) {
+          if (!dependsOn) return [];
+          try {
+            const depIds = typeof dependsOn === 'string' ? JSON.parse(dependsOn) : dependsOn;
+            return depIds.map(id => this.tasks.find(t => t.id === id)).filter(Boolean);
+          } catch {
+            return [];
+          }
         }
       }
     }
