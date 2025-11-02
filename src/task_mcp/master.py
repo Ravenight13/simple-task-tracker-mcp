@@ -40,17 +40,27 @@ def get_master_connection() -> sqlite3.Connection:
 
 def init_master_schema(conn: sqlite3.Connection) -> None:
     """
-    Initialize projects table.
+    Initialize master database schema.
 
-    Schema:
+    Projects table schema:
     - id TEXT PRIMARY KEY (8-char hash)
     - workspace_path TEXT UNIQUE NOT NULL
     - friendly_name TEXT
     - created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     - last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
-    Index:
+    Tool usage table schema:
+    - id INTEGER PRIMARY KEY AUTOINCREMENT
+    - tool_name TEXT NOT NULL
+    - workspace_id TEXT NOT NULL (FK to projects.id)
+    - timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    - success BOOLEAN NOT NULL DEFAULT 1
+
+    Indexes:
     - idx_last_accessed ON projects(last_accessed)
+    - idx_tool_usage_timestamp ON tool_usage(timestamp)
+    - idx_tool_usage_tool_name ON tool_usage(tool_name)
+    - idx_tool_usage_workspace ON tool_usage(workspace_id)
 
     Args:
         conn: SQLite connection to initialize
@@ -72,6 +82,31 @@ def init_master_schema(conn: sqlite3.Connection) -> None:
     # Create index for sorting by last access
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_last_accessed ON projects(last_accessed)
+    """)
+
+    # Create tool_usage table for tracking MCP tool calls
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tool_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tool_name TEXT NOT NULL,
+            workspace_id TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            success BOOLEAN NOT NULL DEFAULT 1,
+            FOREIGN KEY (workspace_id) REFERENCES projects(id)
+        )
+    """)
+
+    # Create indexes for efficient querying on tool_usage
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_timestamp ON tool_usage(timestamp)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_tool_name ON tool_usage(tool_name)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_workspace ON tool_usage(workspace_id)
     """)
 
     # Commit schema changes
