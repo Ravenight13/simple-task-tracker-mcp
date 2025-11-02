@@ -49,6 +49,7 @@ uv.lock
 htmlcov/
 .tox/
 .hypothesis/
+test-results/
 
 # Task MCP specific
 .task-mcp/
