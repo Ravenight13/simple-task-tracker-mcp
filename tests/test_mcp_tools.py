@@ -18,7 +18,6 @@ list_tasks = server.list_tasks.fn
 search_tasks = server.search_tasks.fn
 delete_task = server.delete_task.fn
 get_task_tree = server.get_task_tree.fn
-get_blocked_tasks = server.get_blocked_tasks.fn
 cleanup_deleted_tasks = server.cleanup_deleted_tasks.fn
 list_projects = server.list_projects.fn
 get_project_info = server.get_project_info.fn
@@ -167,7 +166,7 @@ class TestAdvancedQueries:
         assert subtask_titles == {"Child 1", "Child 2"}
 
     def test_get_blocked_tasks(self, test_workspace: str) -> None:
-        """Test getting blocked tasks."""
+        """Test getting blocked tasks using list_tasks."""
         # Create task and update to blocked (can't set blocker_reason on create)
         task = create_task(title="Blocked Task", status="todo", workspace_path=test_workspace)
         update_task(
@@ -180,7 +179,8 @@ class TestAdvancedQueries:
         )
         create_task(title="Normal Task", workspace_path=test_workspace)
 
-        blocked = get_blocked_tasks(test_workspace)
+        # Migration: Use list_tasks with status filter instead of get_blocked_tasks
+        blocked = list_tasks(workspace_path=test_workspace, status="blocked")
         assert len(blocked) == 1
         assert blocked[0]["status"] == "blocked"
         assert blocked[0]["blocker_reason"] == "Waiting for API key"

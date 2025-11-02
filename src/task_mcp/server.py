@@ -745,43 +745,6 @@ def delete_task(
 
 
 @mcp.tool()
-def get_blocked_tasks(
-    workspace_path: str,
-) -> list[dict[str, Any]]:
-    """
-    Get all tasks with status='blocked' and their blocker reasons.
-
-    Args:
-        workspace_path: REQUIRED workspace path
-
-    Returns:
-        List of blocked tasks with blocker_reason field
-    """
-    from .database import get_connection
-    from .master import register_project
-    from .utils import resolve_workspace
-
-    # Auto-register project and update last_accessed
-    workspace = resolve_workspace(workspace_path)
-    register_project(workspace)
-
-    conn = get_connection(workspace_path)
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute("""
-            SELECT * FROM tasks
-            WHERE status = 'blocked' AND deleted_at IS NULL
-            ORDER BY created_at DESC
-        """)
-        rows = cursor.fetchall()
-
-        return [dict(row) for row in rows]
-    finally:
-        conn.close()
-
-
-@mcp.tool()
 def cleanup_deleted_tasks(
     workspace_path: str,
     days: int = 30,
