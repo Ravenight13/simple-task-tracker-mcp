@@ -18,7 +18,8 @@ from typing import Any, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 # Load environment variables
 load_dotenv()
@@ -496,6 +497,16 @@ async def get_task(
         raise ValueError(f"Task with ID {task_id} not found or deleted")
 
     return TaskResponse(**task_data)
+
+
+# Mount static files for frontend
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/")
+async def serve_frontend():
+    """Serve the task viewer frontend HTML."""
+    return FileResponse("static/index.html")
 
 
 # Run the application
