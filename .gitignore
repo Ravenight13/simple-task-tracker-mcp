@@ -63,3 +63,4 @@ htmlcov/
 .env
 .env.local
 task-viewer/.env
+node_modules/
