@@ -469,36 +469,13 @@
             @keydown.enter="openTaskDetail(task)"
             @keydown.space.prevent="openTaskDetail(task)"
           >
-            <!-- Position Number Badge -->
-            <div class="absolute top-2 left-2 px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-medium">
-              <span x-text="'#' + (index + 1)"></span>
-            </div>
-
-            <!-- Parent Task Badge (if this is a subtask) -->
+            <!-- Row 1: Task Title (Clean and Prominent) -->
             <div
-              x-show="task?.parent_task_id"
-              class="mb-2 flex items-center gap-2"
-            >
-              <div class="flex items-center gap-1 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-xs font-medium border border-indigo-200 dark:border-indigo-700">
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                <span>Subtask of:</span>
-                <span
-                  x-text="getParentTask(task.parent_task_id)?.title || `Task #${task.parent_task_id}`"
-                  class="font-semibold truncate max-w-[150px]"
-                  :title="getParentTask(task.parent_task_id)?.title"
-                ></span>
-              </div>
-            </div>
-
-            <!-- Header: Title + Status Badge + Blocker Indicator -->
-            <div
-              class="flex items-start justify-between gap-3 pl-10 relative"
+              class="relative"
               @mouseenter="hoverTimeout = setTimeout(() => showPreview = true, 500)"
               @mouseleave="clearTimeout(hoverTimeout); showPreview = false"
             >
-              <h3 class="flex-1 font-semibold text-gray-900 dark:text-gray-100 leading-snug" x-text="task?.title || 'Untitled'"></h3>
+              <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight pr-2" x-text="task?.title || 'Untitled'"></h3>
 
               <!-- Hover Preview Tooltip -->
               <div
@@ -510,58 +487,92 @@
                 <div class="font-semibold mb-1">Description Preview:</div>
                 <div class="text-gray-200 dark:text-gray-300" x-text="(task?.description || '').substring(0, 200) + ((task?.description || '').length > 200 ? '...' : '')"></div>
               </div>
+            </div>
 
-              <div class="flex items-center gap-2 flex-shrink-0">
-                <!-- Blocker Indicator (Red) - Shows when this task blocks other tasks -->
-                <div
-                  x-show="task?.is_blocker"
-                  class="relative group"
-                  :title="`Blocks ${(task?.blocks_task_ids || []).length} task${(task?.blocks_task_ids || []).length !== 1 ? 's' : ''}`"
-                >
-                  <div class="flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium">
-                    <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
-                    </svg>
-                    <span x-text="(task?.blocks_task_ids || []).length"></span>
-                  </div>
-                </div>
+            <!-- Row 2: Status + Priority Badges -->
+            <div class="mt-3 flex items-center gap-2">
+              <!-- Status Badge -->
+              <span
+                class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                :class="{
+                  'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': task?.status === 'todo',
+                  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': task?.status === 'in_progress',
+                  'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': task?.status === 'done',
+                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.status === 'blocked'
+                }"
+                x-text="task?.status ? task.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
+              ></span>
 
-                <!-- Status Badge -->
+              <!-- Priority badge -->
+              <span
+                class="px-2 py-0.5 rounded text-xs font-medium"
+                :class="{
+                  'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': task?.priority === 'low',
+                  'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': task?.priority === 'medium',
+                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.priority === 'high'
+                }"
+                x-text="task?.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'N/A'"
+              ></span>
+            </div>
+
+            <!-- Row 3: Position, Parent Task, Dependencies, Blocker Badges (Grouped) -->
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <!-- Position Number Badge -->
+              <div class="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-medium">
+                <span x-text="'#' + (index + 1)"></span>
+              </div>
+
+              <!-- Parent Task Badge (if this is a subtask) -->
+              <div
+                x-show="task?.parent_task_id"
+                class="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-xs font-medium border border-indigo-200 dark:border-indigo-700"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <span>Subtask of:</span>
                 <span
-                  class="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                  :class="{
-                    'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': task?.status === 'todo',
-                    'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': task?.status === 'in_progress',
-                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': task?.status === 'done',
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.status === 'blocked'
-                  }"
-                  x-text="task?.status ? task.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
+                  x-text="getParentTask(task.parent_task_id)?.title || `Task #${task.parent_task_id}`"
+                  class="font-semibold truncate max-w-[120px]"
+                  :title="getParentTask(task.parent_task_id)?.title"
                 ></span>
+              </div>
+
+              <!-- Dependencies Badge -->
+              <div
+                x-show="task?.depends_on && (() => { try { return JSON.parse(task.depends_on || '[]').length > 0; } catch { return false; } })()"
+                class="flex items-center gap-1 px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-xs font-medium border border-amber-200 dark:border-amber-700"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span>
+                  Depends:
+                  <span
+                    x-text="(() => { try { const deps = JSON.parse(task.depends_on || '[]'); return deps.map(id => `#${id}`).join(', '); } catch { return ''; } })()"
+                    class="font-semibold"
+                  ></span>
+                </span>
+              </div>
+
+              <!-- Blocker Indicator (Red) - Shows when this task blocks other tasks -->
+              <div
+                x-show="task?.is_blocker"
+                class="flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium border border-red-200 dark:border-red-700"
+                :title="`Blocks ${(task?.blocks_task_ids || []).length} task${(task?.blocks_task_ids || []).length !== 1 ? 's' : ''}`"
+              >
+                <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+                </svg>
+                <span>Blocks <span x-text="(task?.blocks_task_ids || []).length"></span></span>
               </div>
             </div>
 
-            <!-- Description (truncated) -->
+            <!-- Row 4: Description (truncated) -->
             <p
-              class="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
+              class="mt-3 text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
               x-text="task?.description || 'No description provided'"
             ></p>
-
-            <!-- Dependencies Badge -->
-            <div
-              x-show="task?.depends_on && (() => { try { return JSON.parse(task.depends_on || '[]').length > 0; } catch { return false; } })()"
-              class="mt-2 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400"
-            >
-              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              <span>
-                Depends on:
-                <span
-                  x-text="(() => { try { const deps = JSON.parse(task.depends_on || '[]'); return deps.map(id => `#${id}`).join(', '); } catch { return ''; } })()"
-                  class="font-semibold"
-                ></span>
-              </span>
-            </div>
 
             <!-- Subtasks Indicator -->
             <div
@@ -634,30 +645,19 @@
               </template>
             </div>
 
-            <!-- Footer: Priority + Metadata -->
-            <div class="mt-3 flex items-center justify-between">
+            <!-- Metadata Row -->
+            <div class="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
               <div class="flex items-center gap-2">
-                <!-- Priority badge -->
-                <span
-                  class="px-2 py-0.5 rounded text-xs font-medium"
-                  :class="{
-                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': task?.priority === 'low',
-                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': task?.priority === 'medium',
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.priority === 'high'
-                  }"
-                  x-text="task?.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'N/A'"
-                ></span>
-
                 <!-- Tags (if present) -->
                 <span
                   x-show="task?.tags"
-                  class="text-xs text-gray-500 dark:text-gray-400 truncate"
+                  class="truncate"
                   x-text="task?.tags?.split(' ')[0] || ''"
                 ></span>
               </div>
 
               <!-- Created date -->
-              <span class="text-xs text-gray-500 dark:text-gray-400" x-text="formatRelativeTime(task?.created_at)"></span>
+              <span x-text="formatRelativeTime(task?.created_at)"></span>
             </div>
 
             <!-- Quick Actions Bar -->
