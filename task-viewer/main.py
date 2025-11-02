@@ -382,6 +382,57 @@ async def get_blocked_tasks(
     )
 
 
+@app.get("/api/tags")
+async def get_tags(
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+):
+    """
+    Get all unique tags across all tasks with counts.
+
+    Query Parameters:
+        - project_id: Filter by project
+
+    Returns:
+        List of tag objects with name and count:
+        [{"tag": "bugfix", "count": 5}, ...]
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Call task-mcp to get all tasks
+    tasks_data = await mcp_service.call_tool(
+        "list_tasks", {"workspace_path": resolved_workspace}
+    )
+
+    # Extract and count tags
+    tag_counts: dict[str, int] = {}
+    for task in tasks_data:
+        tags_str = task.get("tags")
+        if tags_str:
+            # Tags are space-separated
+            tags = tags_str.strip().split()
+            for tag in tags:
+                tag = tag.strip()
+                if tag:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    # Convert to list of tag objects sorted by count (descending)
+    tag_list = [{"tag": tag, "count": count} for tag, count in tag_counts.items()]
+    tag_list.sort(key=lambda x: (-x["count"], x["tag"]))  # Sort by count desc, then name asc
+
+    return {
+        "tags": tag_list,
+        "total": len(tag_list),
+    }
+
+
 @app.get("/api/tasks", response_model=TaskListResponse)
 async def list_tasks(
     x_api_key: str = Header(None),
@@ -391,6 +442,7 @@ async def list_tasks(
     priority: Optional[str] = None,
     parent_task_id: Optional[int] = None,
     tags: Optional[str] = None,
+    tag: Optional[str] = None,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
@@ -402,7 +454,8 @@ async def list_tasks(
         - status: Filter by status (todo, in_progress, done, blocked)
         - priority: Filter by priority (low, medium, high)
         - parent_task_id: Filter by parent task
-        - tags: Filter by tags (space-separated)
+        - tags: Filter by tags (space-separated) - for backwards compatibility
+        - tag: Filter by a single tag (preferred for tag picker)
         - limit: Max results per page (default: 50, max: 100)
         - offset: Pagination offset (default: 0)
 
@@ -422,7 +475,11 @@ async def list_tasks(
         args["priority"] = priority
     if parent_task_id is not None:
         args["parent_task_id"] = parent_task_id
-    if tags:
+
+    # Handle tag filtering - prefer single tag parameter over tags
+    if tag:
+        args["tags"] = tag
+    elif tags:
         args["tags"] = tags
 
     # Call task-mcp

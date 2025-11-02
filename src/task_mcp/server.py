@@ -10,7 +10,7 @@ mcp = FastMCP("Task Tracker")
 
 @mcp.tool()
 def list_tasks(
-    workspace_path: str | None = None,
+    workspace_path: str,
     status: str | None = None,
     priority: str | None = None,
     parent_task_id: int | None = None,
@@ -20,7 +20,7 @@ def list_tasks(
     List tasks with optional filters.
 
     Args:
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
         status: Filter by status
         priority: Filter by priority
         parent_task_id: Filter by parent task ID
@@ -75,8 +75,8 @@ def list_tasks(
 @mcp.tool()
 def create_task(
     title: str,
+    workspace_path: str,
     ctx: Context | None = None,
-    workspace_path: str | None = None,
     description: str | None = None,
     status: str = "todo",
     priority: str = "medium",
@@ -91,8 +91,8 @@ def create_task(
 
     Args:
         title: Task title (required)
+        workspace_path: REQUIRED workspace path
         ctx: FastMCP context (auto-injected, optional for direct calls)
-        workspace_path: Optional workspace path (auto-detected if not provided)
         description: Task description (max 10k chars)
         status: Task status (default: "todo")
         priority: Priority level (default: "medium")
@@ -112,7 +112,7 @@ def create_task(
     from .database import get_connection
     from .master import register_project
     from .models import TaskCreate
-    from .utils import resolve_workspace, validate_description_length
+    from .utils import get_workspace_metadata, resolve_workspace, validate_description_length
 
     # Auto-register project and update last_accessed
     workspace = resolve_workspace(workspace_path)
@@ -121,6 +121,10 @@ def create_task(
     # Auto-capture session ID if created_by not provided and context available
     if created_by is None and ctx is not None:
         created_by = ctx.session_id
+
+    # Capture workspace metadata for audit trail
+    workspace_metadata_dict = get_workspace_metadata(workspace_path)
+    workspace_metadata_json = json.dumps(workspace_metadata_dict)
 
     # Validate description length
     if description:
@@ -147,14 +151,14 @@ def create_task(
     now = datetime.now().isoformat()
 
     try:
-        # Insert task with explicit timestamps
+        # Insert task with explicit timestamps and workspace metadata
         cursor.execute(
             """
             INSERT INTO tasks (
                 title, description, status, priority, parent_task_id,
                 depends_on, tags, blocker_reason, file_references, created_by,
-                created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_at, updated_at, workspace_metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 task_data.title,
@@ -169,6 +173,7 @@ def create_task(
                 task_data.created_by,
                 now,  # created_at
                 now,  # updated_at
+                workspace_metadata_json,  # workspace_metadata
             ),
         )
 
@@ -187,14 +192,14 @@ def create_task(
 @mcp.tool()
 def get_task(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Get a single task by ID.
 
     Args:
         task_id: Task ID to retrieve
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Task object with all fields
@@ -232,7 +237,7 @@ def get_task(
 @mcp.tool()
 def update_task(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
     title: str | None = None,
     description: str | None = None,
     status: str | None = None,
@@ -248,7 +253,7 @@ def update_task(
 
     Args:
         task_id: Task ID to update (required)
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
         title: Updated task title
         description: Updated task description (max 10k chars)
         status: Updated task status
@@ -417,14 +422,14 @@ def update_task(
 @mcp.tool()
 def search_tasks(
     search_term: str,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> list[dict[str, Any]]:
     """
     Search tasks by title or description (full-text).
 
     Args:
         search_term: Search term to match in title or description
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
 
     Returns:
         List of matching tasks
@@ -609,14 +614,14 @@ def set_project_name(
 @mcp.tool()
 def get_task_tree(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Get task with all descendant subtasks (recursive).
 
     Args:
         task_id: Root task ID
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Task object with 'subtasks' field containing nested subtasks
@@ -673,7 +678,7 @@ def get_task_tree(
 @mcp.tool()
 def delete_task(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
     cascade: bool = False,
 ) -> dict[str, Any]:
     """
@@ -681,7 +686,7 @@ def delete_task(
 
     Args:
         task_id: Task ID to delete
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
         cascade: If True, also soft-delete all subtasks
 
     Returns:
@@ -741,13 +746,13 @@ def delete_task(
 
 @mcp.tool()
 def get_blocked_tasks(
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> list[dict[str, Any]]:
     """
     Get all tasks with status='blocked' and their blocker reasons.
 
     Args:
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
 
     Returns:
         List of blocked tasks with blocker_reason field
@@ -778,13 +783,13 @@ def get_blocked_tasks(
 
 @mcp.tool()
 def get_next_tasks(
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> list[dict[str, Any]]:
     """
     Get tasks ready to work on (status='todo', no unresolved dependencies).
 
     Args:
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
 
     Returns:
         List of actionable tasks
@@ -841,14 +846,14 @@ def get_next_tasks(
 
 @mcp.tool()
 def cleanup_deleted_tasks(
-    workspace_path: str | None = None,
+    workspace_path: str,
     days: int = 30,
 ) -> dict[str, Any]:
     """
     Permanently delete tasks soft-deleted more than N days ago.
 
     Args:
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
         days: Number of days to retain (default: 30)
 
     Returns:
@@ -897,14 +902,14 @@ def cleanup_deleted_tasks(
 @mcp.tool()
 def get_entity(
     entity_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Get a single entity by ID.
 
     Args:
         entity_id: Entity ID to retrieve
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Entity object with all fields
@@ -943,11 +948,11 @@ def get_entity(
 def create_entity(
     entity_type: str,
     name: str,
+    workspace_path: str,
     ctx: Context | None = None,
-    workspace_path: str | None = None,
     identifier: str | None = None,
     description: str | None = None,
-    metadata: str | dict | list | None = None,
+    metadata: str | dict[Any, Any] | list[Any] | None = None,
     tags: str | None = None,
     created_by: str | None = None,
 ) -> dict[str, Any]:
@@ -957,8 +962,8 @@ def create_entity(
     Args:
         entity_type: 'file' or 'other'
         name: Human-readable name (required)
+        workspace_path: REQUIRED workspace path
         ctx: FastMCP context (auto-injected, optional for direct calls)
-        workspace_path: Optional workspace path (auto-detected if not provided)
         identifier: Unique identifier (file path, vendor code, etc.)
         description: Optional description (max 10k chars)
         metadata: Generic JSON metadata (dict, list, or JSON string)
@@ -972,7 +977,6 @@ def create_entity(
         ValueError: If entity with same (entity_type, identifier) already exists
     """
     # Import at function level
-    import json
     from datetime import datetime
 
     from .database import get_connection
@@ -999,7 +1003,7 @@ def create_entity(
         name=name,
         identifier=identifier,
         description=description,
-        metadata=metadata,  # Model will convert dict/list to JSON string
+        metadata=metadata,  # type: ignore[arg-type]  # Model validator converts dict/list to JSON string
         tags=tags,
         created_by=created_by,
     )
@@ -1067,7 +1071,7 @@ def create_entity(
 def link_entity_to_task(
     task_id: int,
     entity_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
     ctx: Context | None = None,
     created_by: str | None = None,
 ) -> dict[str, Any]:
@@ -1077,7 +1081,7 @@ def link_entity_to_task(
     Args:
         task_id: Task ID to link
         entity_id: Entity ID to link
-        workspace_path: Optional workspace path (auto-detected if not provided)
+        workspace_path: REQUIRED workspace path
         ctx: FastMCP context (auto-injected, optional for direct calls)
         created_by: Conversation ID (auto-captured from session if not provided)
 
@@ -1157,7 +1161,7 @@ def link_entity_to_task(
 @mcp.tool()
 def get_task_entities(
     task_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> list[dict[str, Any]]:
     """
     Get all entities linked to a task.
@@ -1166,7 +1170,7 @@ def get_task_entities(
 
     Args:
         task_id: Task ID to query
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         List of dicts with entity + link fields:
@@ -1251,7 +1255,7 @@ def get_task_entities(
 @mcp.tool()
 def get_entity_tasks(
     entity_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
     status: str | None = None,
     priority: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -1262,7 +1266,7 @@ def get_entity_tasks(
 
     Args:
         entity_id: Entity ID to query
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
         status: Optional task status filter (todo, in_progress, done, etc.)
         priority: Optional task priority filter (low, medium, high)
 
@@ -1372,12 +1376,12 @@ def get_entity_tasks(
 @mcp.tool()
 def update_entity(
     entity_id: int,
+    workspace_path: str,
     ctx: Context | None = None,
-    workspace_path: str | None = None,
     name: str | None = None,
     identifier: str | None = None,
     description: str | None = None,
-    metadata: str | dict | list | None = None,
+    metadata: str | dict[Any, Any] | list[Any] | None = None,
     tags: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -1388,8 +1392,8 @@ def update_entity(
 
     Args:
         entity_id: Entity ID to update (required)
+        workspace_path: REQUIRED workspace path
         ctx: FastMCP context (auto-injected, optional for direct calls)
-        workspace_path: Optional workspace path (auto-detected if not provided)
         name: Updated name (1-500 chars)
         identifier: Updated identifier (max 1000 chars, must be unique per type)
         description: Updated description (max 10,000 chars)
@@ -1404,13 +1408,13 @@ def update_entity(
 
     Examples:
         >>> # Update entity name
-        >>> update_entity(1, name="New Name")
+        >>> update_entity(1, workspace_path="/path", name="New Name")
 
         >>> # Change identifier (validates uniqueness)
-        >>> update_entity(1, identifier="/new/path/file.py")
+        >>> update_entity(1, workspace_path="/path", identifier="/new/path/file.py")
 
         >>> # Update metadata
-        >>> update_entity(1, metadata={"version": "2.0", "status": "active"})
+        >>> update_entity(1, workspace_path="/path", metadata={"version": "2.0", "status": "active"})
     """
     # Import at function level
     import json
@@ -1537,7 +1541,7 @@ def update_entity(
 @mcp.tool()
 def delete_entity(
     entity_id: int,
-    workspace_path: str | None = None,
+    workspace_path: str,
 ) -> dict[str, Any]:
     """
     Soft delete an entity by setting deleted_at timestamp.
@@ -1549,7 +1553,7 @@ def delete_entity(
 
     Args:
         entity_id: Entity ID to delete
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
 
     Returns:
         Success dict with:
@@ -1561,7 +1565,7 @@ def delete_entity(
         ValueError: If entity not found or already deleted
 
     Example:
-        >>> delete_entity(entity_id=42)
+        >>> delete_entity(entity_id=42, workspace_path="/path")
         {
             "success": True,
             "entity_id": 42,
@@ -1624,7 +1628,7 @@ def delete_entity(
 
 @mcp.tool()
 def list_entities(
-    workspace_path: str | None = None,
+    workspace_path: str,
     entity_type: str | None = None,
     tags: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -1632,7 +1636,7 @@ def list_entities(
     List entities with optional filters.
 
     Args:
-        workspace_path: Optional workspace path (auto-detected)
+        workspace_path: REQUIRED workspace path
         entity_type: Filter by entity type ('file' or 'other')
         tags: Filter by tags (space-separated, partial match)
 
@@ -1682,7 +1686,7 @@ def list_entities(
 @mcp.tool()
 def search_entities(
     search_term: str,
-    workspace_path: str | None = None,
+    workspace_path: str,
     entity_type: str | None = None,
 ) -> list[dict[str, Any]]:
     """
@@ -1690,7 +1694,7 @@ def search_entities(
 
     Args:
         search_term: Text to search for (case-insensitive)
-        workspace_path: Optional workspace path
+        workspace_path: REQUIRED workspace path
         entity_type: Optional filter by entity_type
 
     Returns:
@@ -1733,6 +1737,246 @@ def search_entities(
         return [dict(row) for row in rows]
     finally:
         conn.close()
+
+
+@mcp.tool()
+def validate_task_workspace(
+    task_id: int,
+    workspace_path: str,
+) -> dict[str, Any]:
+    """
+    Validate if task workspace metadata matches current workspace.
+
+    Use this tool to check if a task was created in a different workspace,
+    which may indicate cross-workspace contamination or migration.
+
+    Args:
+        task_id: Task ID to validate
+        workspace_path: REQUIRED workspace path
+
+    Returns:
+        Validation result with details:
+        - valid: bool - True if workspace matches or task has no metadata
+        - task_id: int - Task ID being validated
+        - current_workspace: str - Current resolved workspace path
+        - task_workspace: str | None - Workspace from task metadata
+        - workspace_match: bool - True if workspaces match exactly
+        - warnings: list[str] - List of warning messages
+        - metadata: dict | None - Full workspace metadata from task
+
+    Raises:
+        ValueError: If task not found or deleted
+
+    Examples:
+        >>> validate_task_workspace(task_id=42)
+        {
+            "valid": True,
+            "task_id": 42,
+            "current_workspace": "/Users/user/projects/task-mcp",
+            "task_workspace": "/Users/user/projects/task-mcp",
+            "workspace_match": True,
+            "warnings": [],
+            "metadata": {
+                "workspace_path": "/Users/user/projects/task-mcp",
+                "git_root": "/Users/user/projects/task-mcp",
+                "cwd_at_creation": "/Users/user/projects/task-mcp/src",
+                "project_name": "task-mcp"
+            }
+        }
+
+        >>> validate_task_workspace(task_id=99)
+        {
+            "valid": False,
+            "task_id": 99,
+            "current_workspace": "/Users/user/projects/other-project",
+            "task_workspace": "/Users/user/projects/task-mcp",
+            "workspace_match": False,
+            "warnings": [
+                "Task created in different workspace: /Users/user/projects/task-mcp",
+                "Current workspace: /Users/user/projects/other-project",
+                "This task may not be relevant to current project"
+            ],
+            "metadata": {...}
+        }
+    """
+    import json
+
+    from .database import get_connection
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    current_workspace = resolve_workspace(workspace_path)
+    register_project(current_workspace)
+
+    conn = get_connection(workspace_path)
+    cursor = conn.cursor()
+
+    try:
+        # Fetch task
+        cursor.execute(
+            "SELECT id, workspace_metadata FROM tasks WHERE id = ? AND deleted_at IS NULL",
+            (task_id,)
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(f"Task {task_id} not found or has been deleted")
+
+        task = dict(row)
+        workspace_metadata_json = task.get("workspace_metadata")
+
+        # If no metadata, assume valid (backward compatibility)
+        if not workspace_metadata_json:
+            return {
+                "valid": True,
+                "task_id": task_id,
+                "current_workspace": current_workspace,
+                "task_workspace": None,
+                "workspace_match": True,
+                "warnings": ["Task created before workspace metadata tracking (legacy task)"],
+                "metadata": None
+            }
+
+        # Parse metadata
+        try:
+            metadata = json.loads(workspace_metadata_json)
+        except json.JSONDecodeError:
+            return {
+                "valid": True,  # Assume valid if can't parse
+                "task_id": task_id,
+                "current_workspace": current_workspace,
+                "task_workspace": None,
+                "workspace_match": True,
+                "warnings": ["Invalid workspace metadata JSON (corrupted data)"],
+                "metadata": None
+            }
+
+        task_workspace = metadata.get("workspace_path")
+
+        # Compare workspaces
+        workspace_match = (task_workspace == current_workspace)
+
+        # Build warnings
+        warnings = []
+        if not workspace_match:
+            warnings.append(f"Task created in different workspace: {task_workspace}")
+            warnings.append(f"Current workspace: {current_workspace}")
+            warnings.append("This task may not be relevant to current project")
+
+        return {
+            "valid": workspace_match,
+            "task_id": task_id,
+            "current_workspace": current_workspace,
+            "task_workspace": task_workspace,
+            "workspace_match": workspace_match,
+            "warnings": warnings,
+            "metadata": metadata
+        }
+
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def audit_workspace_integrity(
+    workspace_path: str,
+    include_deleted: bool = False,
+    check_git_repo: bool = True,
+) -> dict[str, Any]:
+    """
+    Perform comprehensive workspace integrity audit to detect cross-contamination.
+
+    Scans all tasks and entities in the workspace database for signs of
+    cross-workspace contamination, including mismatched file references,
+    suspicious tags, git repository inconsistencies, and path references
+    in descriptions pointing to other projects.
+
+    Args:
+        workspace_path: REQUIRED workspace path
+        include_deleted: Include soft-deleted tasks/entities in audit (default: False)
+        check_git_repo: Validate git repository consistency (default: True)
+
+    Returns:
+        Comprehensive audit report with structure:
+        - workspace_path: str - Audited workspace path
+        - audit_timestamp: str - ISO 8601 timestamp of audit
+        - contamination_found: bool - True if any issues detected
+        - issues: dict - Categorized contamination issues:
+            - file_reference_mismatches: Tasks with file refs outside workspace
+            - suspicious_tags: Tags containing other project names
+            - git_repo_mismatches: Tasks from different git repositories
+            - entity_identifier_mismatches: File entities pointing outside workspace
+            - description_path_references: Absolute paths in descriptions
+        - statistics: dict - Summary counts:
+            - contaminated_tasks: int - Number of contaminated tasks
+            - contaminated_entities: int - Number of contaminated entities
+        - recommendations: list[str] - Actionable cleanup recommendations
+
+    Raises:
+        ValueError: If workspace path invalid or database inaccessible
+
+    Examples:
+        >>> # Run basic audit on current workspace
+        >>> audit_workspace_integrity()
+        {
+            "workspace_path": "/Users/user/projects/task-mcp",
+            "audit_timestamp": "2025-11-02T10:30:00",
+            "contamination_found": False,
+            "issues": {...},
+            "statistics": {
+                "contaminated_tasks": 0,
+                "contaminated_entities": 0
+            },
+            "recommendations": []
+        }
+
+        >>> # Run comprehensive audit including deleted items
+        >>> audit_workspace_integrity(include_deleted=True)
+        {
+            "workspace_path": "/Users/user/projects/task-mcp",
+            "contamination_found": True,
+            "issues": {
+                "file_reference_mismatches": [
+                    {
+                        "task_id": 42,
+                        "title": "Fix authentication bug",
+                        "file_references": ["/Users/user/other-project/auth.py"],
+                        "reason": "File reference outside workspace"
+                    }
+                ],
+                ...
+            },
+            "statistics": {
+                "contaminated_tasks": 3,
+                "contaminated_entities": 1
+            },
+            "recommendations": [
+                "Review and update file references in task #42",
+                "Consider soft-deleting tasks from other projects"
+            ]
+        }
+
+    Use Cases:
+        - Periodic workspace health checks
+        - Post-migration validation
+        - Debugging cross-project contamination issues
+        - Pre-cleanup analysis before bulk operations
+    """
+    from .audit import perform_workspace_audit
+    from .master import register_project
+    from .utils import resolve_workspace
+
+    # Auto-register project and update last_accessed
+    workspace = resolve_workspace(workspace_path)
+    register_project(workspace)
+
+    # Delegate to audit module
+    return perform_workspace_audit(
+        workspace_path=workspace,
+        include_deleted=include_deleted,
+        check_git_repo=check_git_repo,
+    )
 
 
 def main() -> None:

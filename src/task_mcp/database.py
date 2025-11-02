@@ -50,7 +50,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     - id INTEGER PRIMARY KEY AUTOINCREMENT
     - title TEXT NOT NULL
     - description TEXT (max 10k chars via app validation)
-    - status TEXT CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled'))
+    - status TEXT CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled', 'to_be_deleted'))
     - priority TEXT DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high'))
     - parent_task_id INTEGER (FK to tasks.id)
     - depends_on TEXT (JSON array)
@@ -62,6 +62,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     - updated_at TIMESTAMP
     - completed_at TIMESTAMP
     - deleted_at TIMESTAMP
+    - workspace_metadata TEXT (JSON with workspace context, v0.4.0)
 
     Entities Table (v0.3.0):
     - id INTEGER PRIMARY KEY AUTOINCREMENT
@@ -116,7 +117,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             description TEXT,
-            status TEXT NOT NULL CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled')),
+            status TEXT NOT NULL CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled', 'to_be_deleted')),
             priority TEXT DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
             parent_task_id INTEGER,
             depends_on TEXT,
@@ -188,6 +189,16 @@ def init_schema(conn: sqlite3.Connection) -> None:
     if 'updated_by' not in columns:
         conn.execute("""
             ALTER TABLE entities ADD COLUMN updated_by TEXT
+        """)
+        conn.commit()
+
+    # Migration: Add workspace_metadata column to tasks if it doesn't exist (v0.4.0)
+    cursor.execute("PRAGMA table_info(tasks)")
+    task_columns = {row[1] for row in cursor.fetchall()}
+
+    if 'workspace_metadata' not in task_columns:
+        conn.execute("""
+            ALTER TABLE tasks ADD COLUMN workspace_metadata TEXT
         """)
         conn.commit()
 
