@@ -409,7 +409,7 @@
                 : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'"
               :aria-pressed="statusFilter === status"
             >
-              <span x-text="status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>
+              <span x-text="status === 'all' ? 'All' : status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>
               <span
                 class="ml-1 opacity-75"
                 x-text="`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`"
@@ -629,7 +629,7 @@
                   'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.status === 'blocked',
                   'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': task?.status === 'to_be_deleted'
                 }"
-                x-text="task?.status ? task.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
+                x-text="task?.status ? task.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
               ></span>
 
               <!-- Priority badge -->
@@ -750,7 +750,7 @@
                         'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': subtask?.status === 'blocked',
                         'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': subtask?.status === 'to_be_deleted'
                       }"
-                      x-text="subtask?.status ? subtask.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
+                      x-text="subtask?.status ? subtask.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
                     ></span>
                   </div>
                   <div class="mt-1 flex items-center gap-2">
@@ -885,7 +885,7 @@
                     'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': selectedTask?.status === 'blocked',
                     'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': selectedTask?.status === 'to_be_deleted'
                   }"
-                  x-text="selectedTask?.status ? selectedTask.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
+                  x-text="selectedTask?.status ? selectedTask.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
                 ></span>
 
                 <span
