@@ -1,0 +1,700 @@
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Viewer</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Configuration -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            status: {
+              todo: '#94a3b8',      // slate-400
+              in_progress: '#3b82f6', // blue-500
+              done: '#10b981',       // green-500
+              blocked: '#ef4444',    // red-500
+            },
+            priority: {
+              low: '#94a3b8',       // slate-400
+              medium: '#f59e0b',    // amber-500
+              high: '#ef4444',      // red-500
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+        }
+      },
+      darkMode: 'class',
+    }
+  </script>
+
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+
+  <!-- Alpine.js -->
+  <script defer="" src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- API Configuration -->
+  <script src="js/config.js"></script>
+
+  <!-- Critical CSS for loading states -->
+  <style>
+    /* Hide elements with x-cloak until Alpine initializes */
+    [x-cloak] { display: none !important; }
+
+    /* Skeleton loading animation */
+    .skeleton {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Line clamp utility for truncating text */
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Screen reader only */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    .sr-only:focus {
+      position: static;
+      width: auto;
+      height: auto;
+      padding: 0;
+      margin: 0;
+      overflow: visible;
+      clip: auto;
+      white-space: normal;
+    }
+  </style>
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0, 0, 0, 0);white-space:nowrap;border-width:0}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.sticky{position:sticky}.inset-0{inset:0px}.right-0{right:0px}.right-3{right:0.75rem}.right-4{right:1rem}.top-0{top:0px}.top-16{top:4rem}.top-3{top:0.75rem}.top-4{top:1rem}.z-10{z-index:10}.z-30{z-index:30}.z-40{z-index:40}.z-50{z-index:50}.mx-8{margin-left:2rem;margin-right:2rem}.mx-auto{margin-left:auto;margin-right:auto}.mb-2{margin-bottom:0.5rem}.mb-3{margin-bottom:0.75rem}.ml-2{margin-left:0.5rem}.ml-3{margin-left:0.75rem}.mt-0\.5{margin-top:0.125rem}.mt-1{margin-top:0.25rem}.mt-2{margin-top:0.5rem}.mt-3{margin-top:0.75rem}.mt-4{margin-top:1rem}.mt-6{margin-top:1.5rem}.ml-1{margin-left:0.25rem}.block{display:block}.flex{display:flex}.grid{display:grid}.h-12{height:3rem}.h-16{height:4rem}.h-5{height:1.25rem}.h-6{height:1.5rem}.h-8{height:2rem}.max-h-60{max-height:15rem}.min-h-full{min-height:100%}.w-12{width:3rem}.w-40{width:10rem}.w-48{width:12rem}.w-5{width:1.25rem}.w-6{width:1.5rem}.w-8{width:2rem}.w-full{width:100%}.max-w-2xl{max-width:42rem}.max-w-7xl{max-width:80rem}.max-w-md{max-width:28rem}.flex-1{flex:1 1 0%}@keyframes spin{to{transform:rotate(360deg)}}.animate-spin{animation:spin 1s linear infinite}.grid-cols-1{grid-template-columns:repeat(1, minmax(0, 1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-start{align-items:flex-start}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.space-y-4 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem * var(--tw-space-y-reverse))}.overflow-auto{overflow:auto}.overflow-y-auto{overflow-y:auto}.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rounded{border-radius:0.25rem}.rounded-lg{border-radius:0.5rem}.rounded-full{border-radius:9999px}.border{border-width:1px}.border-b{border-bottom-width:1px}.border-gray-200{--tw-border-opacity:1;border-color:rgb(229 231 235 / var(--tw-border-opacity, 1))}.border-gray-300{--tw-border-opacity:1;border-color:rgb(209 213 219 / var(--tw-border-opacity, 1))}.border-red-200{--tw-border-opacity:1;border-color:rgb(254 202 202 / var(--tw-border-opacity, 1))}.bg-black{--tw-bg-opacity:1;background-color:rgb(0 0 0 / var(--tw-bg-opacity, 1))}.bg-blue-600{--tw-bg-opacity:1;background-color:rgb(37 99 235 / var(--tw-bg-opacity, 1))}.bg-gray-200{--tw-bg-opacity:1;background-color:rgb(229 231 235 / var(--tw-bg-opacity, 1))}.bg-gray-50{--tw-bg-opacity:1;background-color:rgb(249 250 251 / var(--tw-bg-opacity, 1))}.bg-red-50{--tw-bg-opacity:1;background-color:rgb(254 242 242 / var(--tw-bg-opacity, 1))}.bg-red-600{--tw-bg-opacity:1;background-color:rgb(220 38 38 / var(--tw-bg-opacity, 1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.bg-opacity-50{--tw-bg-opacity:0.5}.p-2{padding:0.5rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-12{padding-top:3rem;padding-bottom:3rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-4{padding-top:1rem;padding-bottom:1rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.text-left{text-align:left}.text-center{text-align:center}.font-sans{font-family:Inter, ui-sans-serif, system-ui, -apple-system, sans-serif}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.text-blue-600{--tw-text-opacity:1;color:rgb(37 99 235 / var(--tw-text-opacity, 1))}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128 / var(--tw-text-opacity, 1))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99 / var(--tw-text-opacity, 1))}.text-gray-700{--tw-text-opacity:1;color:rgb(55 65 81 / var(--tw-text-opacity, 1))}.text-gray-800{--tw-text-opacity:1;color:rgb(31 41 55 / var(--tw-text-opacity, 1))}.text-gray-900{--tw-text-opacity:1;color:rgb(17 24 39 / var(--tw-text-opacity, 1))}.text-red-400{--tw-text-opacity:1;color:rgb(248 113 113 / var(--tw-text-opacity, 1))}.text-red-700{--tw-text-opacity:1;color:rgb(185 28 28 / var(--tw-text-opacity, 1))}.text-red-800{--tw-text-opacity:1;color:rgb(153 27 27 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.antialiased{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.placeholder-gray-400::placeholder{--tw-placeholder-opacity:1;color:rgb(156 163 175 / var(--tw-placeholder-opacity, 1))}.opacity-25{opacity:0.25}.opacity-75{opacity:0.75}.shadow-lg{--tw-shadow:0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color), 0 8px 10px -6px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.transition-colors{transition-property:color, background-color, border-color, fill, stroke, -webkit-text-decoration-color;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, -webkit-text-decoration-color;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.hover\:bg-blue-700:hover{--tw-bg-opacity:1;background-color:rgb(29 78 216 / var(--tw-bg-opacity, 1))}.hover\:bg-gray-100:hover{--tw-bg-opacity:1;background-color:rgb(243 244 246 / var(--tw-bg-opacity, 1))}.hover\:bg-gray-300:hover{--tw-bg-opacity:1;background-color:rgb(209 213 219 / var(--tw-bg-opacity, 1))}.hover\:bg-gray-50:hover{--tw-bg-opacity:1;background-color:rgb(249 250 251 / var(--tw-bg-opacity, 1))}.hover\:bg-red-700:hover{--tw-bg-opacity:1;background-color:rgb(185 28 28 / var(--tw-bg-opacity, 1))}.hover\:text-gray-600:hover{--tw-text-opacity:1;color:rgb(75 85 99 / var(--tw-text-opacity, 1))}.focus\:not-sr-only:focus{position:static;width:auto;height:auto;padding:0;margin:0;overflow:visible;clip:auto;white-space:normal}.focus\:absolute:focus{position:absolute}.focus\:left-0:focus{left:0px}.focus\:top-0:focus{top:0px}.focus\:z-50:focus{z-index:50}.focus\:bg-blue-600:focus{--tw-bg-opacity:1;background-color:rgb(37 99 235 / var(--tw-bg-opacity, 1))}.focus\:p-4:focus{padding:1rem}.focus\:text-white:focus{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.focus\:ring-2:focus{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000)}.focus\:ring-blue-500:focus{--tw-ring-opacity:1;--tw-ring-color:rgb(59 130 246 / var(--tw-ring-opacity, 1))}.focus\:ring-gray-500:focus{--tw-ring-opacity:1;--tw-ring-color:rgb(107 114 128 / var(--tw-ring-opacity, 1))}.focus\:ring-red-500:focus{--tw-ring-opacity:1;--tw-ring-color:rgb(239 68 68 / var(--tw-ring-opacity, 1))}.dark\:border-gray-600:is(.dark *){--tw-border-opacity:1;border-color:rgb(75 85 99 / var(--tw-border-opacity, 1))}.dark\:border-gray-700:is(.dark *){--tw-border-opacity:1;border-color:rgb(55 65 81 / var(--tw-border-opacity, 1))}.dark\:border-red-800:is(.dark *){--tw-border-opacity:1;border-color:rgb(153 27 27 / var(--tw-border-opacity, 1))}.dark\:bg-gray-700:is(.dark *){--tw-bg-opacity:1;background-color:rgb(55 65 81 / var(--tw-bg-opacity, 1))}.dark\:bg-gray-800:is(.dark *){--tw-bg-opacity:1;background-color:rgb(31 41 55 / var(--tw-bg-opacity, 1))}.dark\:bg-gray-900:is(.dark *){--tw-bg-opacity:1;background-color:rgb(17 24 39 / var(--tw-bg-opacity, 1))}.dark\:bg-red-900\/20:is(.dark *){background-color:rgb(127 29 29 / 0.2)}.dark\:text-gray-100:is(.dark *){--tw-text-opacity:1;color:rgb(243 244 246 / var(--tw-text-opacity, 1))}.dark\:text-gray-200:is(.dark *){--tw-text-opacity:1;color:rgb(229 231 235 / var(--tw-text-opacity, 1))}.dark\:text-gray-300:is(.dark *){--tw-text-opacity:1;color:rgb(209 213 219 / var(--tw-text-opacity, 1))}.dark\:text-gray-400:is(.dark *){--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.dark\:text-red-200:is(.dark *){--tw-text-opacity:1;color:rgb(254 202 202 / var(--tw-text-opacity, 1))}.dark\:text-red-300:is(.dark *){--tw-text-opacity:1;color:rgb(252 165 165 / var(--tw-text-opacity, 1))}.dark\:hover\:bg-gray-600:hover:is(.dark *){--tw-bg-opacity:1;background-color:rgb(75 85 99 / var(--tw-bg-opacity, 1))}.dark\:hover\:bg-gray-700:hover:is(.dark *){--tw-bg-opacity:1;background-color:rgb(55 65 81 / var(--tw-bg-opacity, 1))}.dark\:hover\:bg-gray-800:hover:is(.dark *){--tw-bg-opacity:1;background-color:rgb(31 41 55 / var(--tw-bg-opacity, 1))}.dark\:hover\:text-gray-200:hover:is(.dark *){--tw-text-opacity:1;color:rgb(229 231 235 / var(--tw-text-opacity, 1))}@media (min-width: 640px){.sm\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.sm\:flex-row{flex-direction:row}.sm\:px-6{padding-left:1.5rem;padding-right:1.5rem}}@media (min-width: 1024px){.lg\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.lg\:px-8{padding-left:2rem;padding-right:2rem}}</style></head>
+<body class="bg-gray-50 dark:bg-gray-900 font-sans antialiased">
+  <!-- Skip to main content link (accessibility) -->
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:p-4 focus:bg-blue-600 focus:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+    Skip to main content
+  </a>
+
+  <!-- Main Alpine.js App -->
+  <div x-data="taskViewer()" x-init="init()">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <!-- Logo/Title -->
+          <div class="flex items-center">
+            <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+              Task Viewer
+            </h1>
+          </div>
+
+          <!-- Project Selector -->
+          <div class="flex-1 max-w-md mx-8" x-data="{ open: false }">
+            <div class="relative">
+              <button @click="open = !open" class="w-full px-4 py-2 text-left bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors" :aria-expanded="open" aria-haspopup="listbox" aria-expanded="false">
+                <span x-text="currentProject?.friendly_name || (currentProject?.workspace_path ? currentProject.workspace_path.split('/').pop() : 'Select Project')" class="block truncate"></span>
+                <svg class="absolute right-3 top-3 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+              </button>
+
+              <div x-show="open" @click.away="open = false" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95" class="absolute z-10 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto" role="listbox" style="display: none;">
+                <template x-for="project in projects" :key="project.id">
+                  <button @click="selectProject(project); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': currentProject?.id === project.id }" role="option" :aria-selected="currentProject?.id === project.id">
+                    <div class="font-medium" x-text="project?.friendly_name || (project?.workspace_path ? project.workspace_path.split('/').pop() : 'Unknown')"></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="project?.workspace_path || ''"></div>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- API Key Status -->
+          <div class="flex items-center gap-3">
+            <button @click="showApiKeyModal = true" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors" :class="{ 'text-green-600 dark:text-green-400': apiKey, 'text-red-600 dark:text-red-400': !apiKey }" :title="apiKey ? 'API Key Configured' : 'Configure API Key'">
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Filters Bar -->
+    <div class="sticky top-16 z-30 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <!-- Status chips with counts -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
+
+          <template x-for="status in ['all', 'todo', 'in_progress', 'done', 'blocked']" :key="status">
+            <button @click="statusFilter = status; applyFilters()" class="px-3 py-1 rounded-full text-sm font-medium transition-colors" :class="statusFilter === status
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'" :aria-pressed="statusFilter === status">
+              <span x-text="status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l =&gt; l.toUpperCase())"></span>
+              <span class="ml-1 opacity-75" x-text="`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`"></span>
+            </button>
+          </template><button @click="statusFilter = status; applyFilters()" class="px-3 py-1 rounded-full text-sm font-medium transition-colors" :class="statusFilter === status
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'" :aria-pressed="statusFilter === status">
+              <span x-text="status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l =&gt; l.toUpperCase())">All</span>
+              <span class="ml-1 opacity-75" x-text="`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`"></span>
+            </button><button @click="statusFilter = status; applyFilters()" class="px-3 py-1 rounded-full text-sm font-medium transition-colors" :class="statusFilter === status
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'" :aria-pressed="statusFilter === status">
+              <span x-text="status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l =&gt; l.toUpperCase())">Todo</span>
+              <span class="ml-1 opacity-75" x-text="`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`"></span>
+            </button><button @click="statusFilter = status; applyFilters()" class="px-3 py-1 rounded-full text-sm font-medium transition-colors" :class="statusFilter === status
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'" :aria-pressed="statusFilter === status">
+              <span x-text="status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l =&gt; l.toUpperCase())">In Progress</span>
+              <span class="ml-1 opacity-75" x-text="`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`"></span>
+            </button><button @click="statusFilter = status; applyFilters()" class="px-3 py-1 rounded-full text-sm font-medium transition-colors" :class="statusFilter === status
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'" :aria-pressed="statusFilter === status">
+              <span x-text="status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l =&gt; l.toUpperCase())">Done</span>
+              <span class="ml-1 opacity-75" x-text="`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`"></span>
+            </button><button @click="statusFilter = status; applyFilters()" class="px-3 py-1 rounded-full text-sm font-medium transition-colors" :class="statusFilter === status
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'" :aria-pressed="statusFilter === status">
+              <span x-text="status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l =&gt; l.toUpperCase())">Blocked</span>
+              <span class="ml-1 opacity-75" x-text="`(${status === 'all' ? (statusCounts?.total || 0) : (statusCounts?.[status] || 0)})`"></span>
+            </button>
+        </div>
+
+        <!-- Search and filters row -->
+        <div class="flex flex-col sm:flex-row gap-3">
+          <!-- Search input -->
+          <div class="flex-1">
+            <input type="text" x-model.debounce.300ms="searchQuery" @input="applyFilters()" placeholder="Search tasks..." class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors" aria-label="Search tasks" style="">
+          </div>
+
+          <!-- Priority filter -->
+          <div class="relative" x-data="{ open: false }">
+            <button @click="open = !open" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors" :aria-expanded="open" aria-expanded="false">
+              Priority: <span x-text="priorityFilter === 'all' ? 'All' : priorityFilter.charAt(0).toUpperCase() + priorityFilter.slice(1)"></span>
+            </button>
+
+            <div x-show="open" @click.away="open = false" x-transition="" class="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10" style="display: none;">
+              <template x-for="priority in ['all', 'low', 'medium', 'high']" :key="priority">
+                <button @click="priorityFilter = priority; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }">
+                  <span x-text="priority === 'all' ? 'All' : priority.charAt(0).toUpperCase() + priority.slice(1)"></span>
+                </button>
+              </template><button @click="priorityFilter = priority; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }">
+                  <span x-text="priority === 'all' ? 'All' : priority.charAt(0).toUpperCase() + priority.slice(1)">All</span>
+                </button><button @click="priorityFilter = priority; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }">
+                  <span x-text="priority === 'all' ? 'All' : priority.charAt(0).toUpperCase() + priority.slice(1)">Low</span>
+                </button><button @click="priorityFilter = priority; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }">
+                  <span x-text="priority === 'all' ? 'All' : priority.charAt(0).toUpperCase() + priority.slice(1)">Medium</span>
+                </button><button @click="priorityFilter = priority; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': priorityFilter === priority }">
+                  <span x-text="priority === 'all' ? 'All' : priority.charAt(0).toUpperCase() + priority.slice(1)">High</span>
+                </button>
+            </div>
+          </div>
+
+          <!-- Sort dropdown -->
+          <div class="relative" x-data="{ open: false }">
+            <button @click="open = !open" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors" :aria-expanded="open" aria-expanded="false">
+              Sort
+            </button>
+
+            <div x-show="open" @click.away="open = false" x-transition="" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10" style="display: none;">
+              <template x-for="option in [
+                { value: 'created_desc', label: 'Newest first' },
+                { value: 'created_asc', label: 'Oldest first' },
+                { value: 'priority_desc', label: 'Priority (high to low)' },
+                { value: 'title_asc', label: 'Title (A-Z)' }
+              ]" :key="option.value">
+                <button @click="sortBy = option.value; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }">
+                  <span x-text="option.label"></span>
+                </button>
+              </template><button @click="sortBy = option.value; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }">
+                  <span x-text="option.label">Newest first</span>
+                </button><button @click="sortBy = option.value; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }">
+                  <span x-text="option.label">Oldest first</span>
+                </button><button @click="sortBy = option.value; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }">
+                  <span x-text="option.label">Priority (high to low)</span>
+                </button><button @click="sortBy = option.value; applyFilters(); open = false" class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-900': sortBy === option.value }">
+                  <span x-text="option.label">Title (A-Z)</span>
+                </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <!-- Live region for screen reader announcements -->
+      <div role="status" aria-live="polite" aria-atomic="true" class="sr-only">
+        <span x-text="`Showing ${(filteredTasks || []).length} of ${(tasks || []).length} tasks`"></span>
+      </div>
+
+      <!-- Loading State -->
+      <div x-show="loading" class="space-y-4" style="display: none;">
+        <div class="flex justify-center items-center py-12">
+          <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="ml-2 text-gray-600 dark:text-gray-400">Loading tasks...</span>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div x-show="error &amp;&amp; !loading" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4" style="display: none;">
+        <div class="flex items-start">
+          <svg class="h-5 w-5 text-red-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+          </svg>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Error loading tasks</h3>
+            <p class="mt-1 text-sm text-red-700 dark:text-red-300" x-text="error"></p>
+            <button @click="loadTasks()" class="mt-3 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors">
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div x-show="!loading &amp;&amp; !error &amp;&amp; (filteredTasks || []).length === 0" class="text-center py-12" style="display: none;">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No tasks found</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <template x-if="searchQuery || statusFilter !== 'all' || priorityFilter !== 'all'">
+            <span>Try adjusting your filters</span>
+          </template>
+          <template x-if="!searchQuery &amp;&amp; statusFilter === 'all' &amp;&amp; priorityFilter === 'all'">
+            <span>This project has no tasks yet</span>
+          </template>
+        </p>
+      </div>
+
+      <!-- Task Cards Grid -->
+      <div x-show="!loading &amp;&amp; !error &amp;&amp; (filteredTasks || []).length &gt; 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" style="display: none;">
+        <template x-for="task in filteredTasks" :key="task.id">
+          <div @click="openTaskDetail(task)" class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600" role="button" tabindex="0" @keydown.enter="openTaskDetail(task)" @keydown.space.prevent="openTaskDetail(task)">
+            <!-- Header: Title + Status Badge -->
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="flex-1 font-semibold text-gray-900 dark:text-gray-100 leading-snug" x-text="task?.title || 'Untitled'"></h3>
+
+              <span class="flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium" :class="{
+                  'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': task?.status === 'todo',
+                  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': task?.status === 'in_progress',
+                  'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': task?.status === 'done',
+                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.status === 'blocked'
+                }" x-text="task?.status ? task.status.replace('_', ' ').replace(/\b\w/g, l =&gt; l.toUpperCase()) : 'N/A'"></span>
+            </div>
+
+            <!-- Description (truncated) -->
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2" x-text="task?.description || 'No description provided'"></p>
+
+            <!-- Footer: Priority + Metadata -->
+            <div class="mt-3 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <!-- Priority badge -->
+                <span class="px-2 py-0.5 rounded text-xs font-medium" :class="{
+                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': task?.priority === 'low',
+                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': task?.priority === 'medium',
+                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task?.priority === 'high'
+                  }" x-text="task?.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'N/A'"></span>
+
+                <!-- Tags (if present) -->
+                <span x-show="task?.tags" class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="task?.tags?.split(' ')[0] || ''"></span>
+              </div>
+
+              <!-- Created date -->
+              <span class="text-xs text-gray-500 dark:text-gray-400" x-text="formatRelativeTime(task?.created_at)"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </main>
+
+    <!-- Task Detail Modal -->
+    <div x-show="showModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-50 overflow-y-auto" @click.self="closeModal()" role="dialog" aria-modal="true" :aria-labelledby="selectedTask ? 'modal-title-' + (selectedTask?.id || 'task') : 'modal-title-task'" aria-labelledby="" style="display: none;">
+      <!-- Backdrop -->
+      <div class="fixed inset-0 bg-black bg-opacity-50"></div>
+
+      <!-- Modal content -->
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div x-show="showModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6" @click.stop="" x-trap.noscroll="showModal" style="display: none;">
+          <!-- Close button -->
+          <button @click="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded" aria-label="Close task details">
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+
+          <!-- Modal content (if task selected) -->
+          <template x-if="selectedTask">
+            <div>
+              <h2 :id="'modal-title-' + (selectedTask?.id || 'task')" class="text-2xl font-bold text-gray-900 dark:text-gray-100 pr-8" x-text="selectedTask?.title || 'Untitled'"></h2>
+
+              <div class="mt-4 flex gap-2 flex-wrap">
+                <span class="px-3 py-1 text-sm font-medium rounded-full" :class="{
+                    'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': selectedTask?.status === 'todo',
+                    'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': selectedTask?.status === 'in_progress',
+                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': selectedTask?.status === 'done',
+                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': selectedTask?.status === 'blocked'
+                  }" x-text="selectedTask?.status ? selectedTask.status.replace('_', ' ').replace(/\b\w/g, l =&gt; l.toUpperCase()) : 'N/A'"></span>
+
+                <span class="px-3 py-1 text-sm font-medium rounded" :class="{
+                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': selectedTask?.priority === 'low',
+                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': selectedTask?.priority === 'medium',
+                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': selectedTask?.priority === 'high'
+                  }" x-text="selectedTask?.priority ? selectedTask.priority.charAt(0).toUpperCase() + selectedTask.priority.slice(1) : 'N/A'"></span>
+              </div>
+
+              <div class="mt-6" x-show="selectedTask?.description">
+                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Description</h3>
+                <p class="mt-2 text-gray-600 dark:text-gray-400 whitespace-pre-wrap" x-text="selectedTask?.description || 'No description'"></p>
+              </div>
+
+              <!-- Blocker reason (if blocked) -->
+              <div class="mt-6" x-show="selectedTask?.status === 'blocked' &amp;&amp; selectedTask?.blocker_reason">
+                <h3 class="text-sm font-semibold text-red-700 dark:text-red-300">Blocker Reason</h3>
+                <p class="mt-2 text-red-600 dark:text-red-400" x-text="selectedTask?.blocker_reason || ''"></p>
+              </div>
+
+              <!-- Metadata grid -->
+              <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span class="font-semibold text-gray-700 dark:text-gray-300">Created:</span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask?.created_at)"></span>
+                </div>
+
+                <div x-show="selectedTask?.updated_at &amp;&amp; selectedTask?.updated_at !== selectedTask?.created_at">
+                  <span class="font-semibold text-gray-700 dark:text-gray-300">Updated:</span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask?.updated_at)"></span>
+                </div>
+
+                <div x-show="selectedTask?.completed_at">
+                  <span class="font-semibold text-gray-700 dark:text-gray-300">Completed:</span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="formatDate(selectedTask?.completed_at)"></span>
+                </div>
+
+                <div x-show="selectedTask?.tags">
+                  <span class="font-semibold text-gray-700 dark:text-gray-300">Tags:</span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="selectedTask?.tags || ''"></span>
+                </div>
+
+                <div x-show="selectedTask?.parent_task_id" class="sm:col-span-2">
+                  <span class="font-semibold text-gray-700 dark:text-gray-300">Parent Task:</span>
+                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="'#' + (selectedTask?.parent_task_id || '')"></span>
+                </div>
+              </div>
+
+              <!-- File references -->
+              <div class="mt-6" x-show="selectedTask?.file_references &amp;&amp; (() =&gt; { try { return JSON.parse(selectedTask.file_references || '[]').length &gt; 0; } catch { return false; } })()">
+                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">File References</h3>
+                <ul class="mt-2 space-y-1">
+                  <template x-for="file in (() =&gt; { try { return JSON.parse(selectedTask?.file_references || '[]'); } catch { return []; } })()" :key="file">
+                    <li class="text-sm text-blue-600 dark:text-blue-400 font-mono" x-text="file || ''"></li>
+                  </template>
+                </ul>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Key Configuration Modal -->
+    <div x-show="showApiKeyModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-50 overflow-y-auto" @click.self="showApiKeyModal = false" role="dialog" aria-modal="true" aria-labelledby="api-key-modal-title" style="display: none;">
+      <!-- Backdrop -->
+      <div class="fixed inset-0 bg-black bg-opacity-50"></div>
+
+      <!-- Modal content -->
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div x-show="showApiKeyModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6" @click.stop="" style="display: none;">
+          <h2 id="api-key-modal-title" class="text-xl font-bold text-gray-900 dark:text-gray-100">Configure API Key</h2>
+
+          <div class="mt-4">
+            <label for="api-key-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              API Key
+            </label>
+            <input id="api-key-input" type="password" x-model="apiKeyInput" placeholder="Enter your API key" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" style="">
+          </div>
+
+          <div class="mt-6 flex gap-3">
+            <button @click="saveApiKey()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+              Save
+            </button>
+            <button @click="showApiKeyModal = false" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Alpine.js Application Logic -->
+  <script>
+    function taskViewer() {
+      return {
+        // State
+        apiKey: API_CONFIG.getApiKey(),
+        apiKeyInput: '',
+        showApiKeyModal: false,
+        projects: [],
+        currentProject: null,
+        tasks: [],
+        filteredTasks: [],
+        selectedTask: null,
+        statusCounts: {
+          total: 0,
+          todo: 0,
+          in_progress: 0,
+          done: 0,
+          blocked: 0
+        },
+
+        // Filters
+        statusFilter: 'all',
+        priorityFilter: 'all',
+        searchQuery: '',
+        sortBy: 'created_desc',
+
+        // UI State
+        loading: false,
+        error: null,
+        showModal: false,
+
+        // Lifecycle
+        async init() {
+          // Check for API key
+          if (!this.apiKey) {
+            this.showApiKeyModal = true;
+            return;
+          }
+
+          await this.loadProjects();
+          if (this.projects.length > 0) {
+            this.currentProject = this.projects[0];
+            await this.loadTasks();
+          }
+        },
+
+        // API Methods
+        async loadProjects() {
+          this.loading = true;
+          this.error = null;
+
+          try {
+            const response = await fetch(`${API_CONFIG.baseUrl}/projects`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!response.ok) {
+              if (response.status === 401) {
+                throw new Error('Invalid API key. Please check your configuration.');
+              }
+              throw new Error(`Failed to load projects: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.projects = data.projects || [];
+          } catch (err) {
+            this.error = err.message;
+            console.error('Error loading projects:', err);
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async loadTasks() {
+          if (!this.currentProject) {
+            this.tasks = [];
+            this.filteredTasks = [];
+            this.updateStatusCounts();
+            return;
+          }
+
+          this.loading = true;
+          this.error = null;
+
+          try {
+            const params = new URLSearchParams({
+              project_id: this.currentProject.id,
+            });
+
+            const response = await fetch(`${API_CONFIG.baseUrl}/tasks?${params}`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to load tasks: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.tasks = data.tasks || [];
+            this.applyFilters();
+          } catch (err) {
+            this.error = err.message;
+            this.tasks = [];
+            this.filteredTasks = [];
+            this.updateStatusCounts();
+            console.error('Error loading tasks:', err);
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async selectProject(project) {
+          this.currentProject = project;
+          await this.loadTasks();
+        },
+
+        // Filter Methods (client-side for instant response)
+        applyFilters() {
+          let filtered = [...(this.tasks || [])];
+
+          // Status filter
+          if (this.statusFilter !== 'all') {
+            filtered = filtered.filter(t => t?.status === this.statusFilter);
+          }
+
+          // Priority filter
+          if (this.priorityFilter !== 'all') {
+            filtered = filtered.filter(t => t?.priority === this.priorityFilter);
+          }
+
+          // Search filter
+          if (this.searchQuery && this.searchQuery.trim()) {
+            const query = this.searchQuery.toLowerCase();
+            filtered = filtered.filter(t =>
+              (t?.title && t.title.toLowerCase().includes(query)) ||
+              (t?.description && t.description.toLowerCase().includes(query)) ||
+              (t?.tags && t.tags.toLowerCase().includes(query))
+            );
+          }
+
+          // Sort
+          filtered.sort((a, b) => {
+            switch (this.sortBy) {
+              case 'created_desc':
+                return new Date(b?.created_at || 0) - new Date(a?.created_at || 0);
+              case 'created_asc':
+                return new Date(a?.created_at || 0) - new Date(b?.created_at || 0);
+              case 'priority_desc':
+                const priorityOrder = { high: 3, medium: 2, low: 1 };
+                return (priorityOrder[b?.priority] || 0) - (priorityOrder[a?.priority] || 0);
+              case 'title_asc':
+                return (a?.title || '').localeCompare(b?.title || '');
+              default:
+                return 0;
+            }
+          });
+
+          this.filteredTasks = filtered;
+          this.updateStatusCounts();
+        },
+
+        // UI Methods
+        openTaskDetail(task) {
+          this.selectedTask = task;
+          this.showModal = true;
+        },
+
+        closeModal() {
+          this.showModal = false;
+          setTimeout(() => {
+            this.selectedTask = null;
+          }, 300);
+        },
+
+        saveApiKey() {
+          if (this.apiKeyInput && this.apiKeyInput.trim()) {
+            this.apiKey = this.apiKeyInput.trim();
+            API_CONFIG.setApiKey(this.apiKey);
+            this.showApiKeyModal = false;
+            this.apiKeyInput = '';
+            this.init();
+          }
+        },
+
+        // Update status counts
+        updateStatusCounts() {
+          const tasks = this.tasks || [];
+          this.statusCounts = {
+            total: tasks.length,
+            todo: tasks.filter(t => t?.status === 'todo').length,
+            in_progress: tasks.filter(t => t?.status === 'in_progress').length,
+            done: tasks.filter(t => t?.status === 'done').length,
+            blocked: tasks.filter(t => t?.status === 'blocked').length,
+          };
+        },
+
+        // Helper Functions
+        formatDate(dateString) {
+          if (!dateString) return 'N/A';
+          const date = new Date(dateString);
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }).format(date);
+        },
+
+        formatRelativeTime(dateString) {
+          if (!dateString) return 'N/A';
+          const date = new Date(dateString);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+
+          if (diffMins < 1) return 'Just now';
+          if (diffMins < 60) return `${diffMins}m ago`;
+          if (diffHours < 24) return `${diffHours}h ago`;
+          if (diffDays < 7) return `${diffDays}d ago`;
+          return this.formatDate(dateString);
+        }
+      }
+    }
+  </script>
+
+
+</body></html>
