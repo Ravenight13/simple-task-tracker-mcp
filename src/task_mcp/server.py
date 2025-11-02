@@ -1,5 +1,6 @@
 """FastMCP server for task tracking with SQLite backend."""
 
+from functools import wraps
 from typing import Any
 
 from fastmcp import Context, FastMCP
@@ -8,6 +9,38 @@ from fastmcp import Context, FastMCP
 mcp = FastMCP("Task Tracker")
 
 
+def track_usage(func):
+    """Decorator to track MCP tool usage."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        from .master import get_project_id, record_tool_usage
+        from .utils import resolve_workspace
+
+        tool_name = func.__name__
+        workspace_path = kwargs.get('workspace_path')
+        success = True
+
+        try:
+            result = func(*args, **kwargs)
+            return result
+        except Exception as e:
+            success = False
+            raise
+        finally:
+            # Track usage if workspace_path provided
+            if workspace_path:
+                try:
+                    workspace = resolve_workspace(workspace_path)
+                    workspace_id = get_project_id(workspace)
+                    record_tool_usage(tool_name, workspace_id, success)
+                except Exception:
+                    # Silently fail - don't break tool execution
+                    pass
+
+    return wrapper
+
+
+@track_usage
 @mcp.tool()
 def list_tasks(
     workspace_path: str,
@@ -72,6 +105,7 @@ def list_tasks(
         conn.close()
 
 
+@track_usage
 @mcp.tool()
 def create_task(
     title: str,
@@ -189,6 +223,7 @@ def create_task(
         conn.close()
 
 
+@track_usage
 @mcp.tool()
 def get_task(
     task_id: int,
@@ -606,6 +641,120 @@ def set_project_name(
             "project_id": project_id,
             "workspace_path": workspace_path,
             "friendly_name": friendly_name,
+        }
+    finally:
+        conn.close()
+
+
+@track_usage
+@mcp.tool()
+def get_usage_stats(
+    workspace_path: str,
+    days: int = 30,
+    tool_name: str | None = None,
+) -> dict[str, Any]:
+    """
+    Get MCP tool usage statistics for analytics.
+
+    Args:
+        workspace_path: REQUIRED workspace path
+        days: Number of days to include in stats (default: 30)
+        tool_name: Optional filter for specific tool (default: all tools)
+
+    Returns:
+        Dict with usage statistics:
+        - total_calls: Total number of tool calls
+        - success_rate: Percentage of successful calls
+        - tools: List of tools with call counts and success rates
+        - timeline: Daily call counts
+        - date_range: Start and end dates
+    """
+    from datetime import datetime, timedelta
+    from .master import get_master_connection, get_project_id
+    from .utils import resolve_workspace
+
+    workspace = resolve_workspace(workspace_path)
+    workspace_id = get_project_id(workspace)
+
+    conn = get_master_connection()
+    try:
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+
+        # Build query with optional tool_name filter
+        where_clause = "WHERE workspace_id = ? AND timestamp >= ?"
+        params = [workspace_id, start_date.isoformat()]
+
+        if tool_name:
+            where_clause += " AND tool_name = ?"
+            params.append(tool_name)
+
+        # Get overall stats
+        cursor = conn.execute(f"""
+            SELECT
+                COUNT(*) as total_calls,
+                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_calls
+            FROM tool_usage
+            {where_clause}
+        """, params)
+        row = cursor.fetchone()
+        total_calls = row[0] if row else 0
+        successful_calls = row[1] if row else 0
+        success_rate = (successful_calls / total_calls * 100) if total_calls > 0 else 0
+
+        # Get per-tool stats
+        cursor = conn.execute(f"""
+            SELECT
+                tool_name,
+                COUNT(*) as calls,
+                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful,
+                CAST(SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as success_rate
+            FROM tool_usage
+            {where_clause}
+            GROUP BY tool_name
+            ORDER BY calls DESC
+        """, params)
+        tools = [
+            {
+                "tool_name": row[0],
+                "calls": row[1],
+                "successful": row[2],
+                "success_rate": round(row[3], 2),
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # Get daily timeline
+        cursor = conn.execute(f"""
+            SELECT
+                DATE(timestamp) as date,
+                COUNT(*) as calls
+            FROM tool_usage
+            {where_clause}
+            GROUP BY DATE(timestamp)
+            ORDER BY date
+        """, params)
+        timeline = [
+            {"date": row[0], "calls": row[1]}
+            for row in cursor.fetchall()
+        ]
+
+        return {
+            "total_calls": total_calls,
+            "successful_calls": successful_calls,
+            "success_rate": round(success_rate, 2),
+            "tools": tools,
+            "timeline": timeline,
+            "date_range": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+                "days": days,
+            },
+            "filter": {
+                "workspace_id": workspace_id,
+                "tool_name": tool_name,
+            },
         }
     finally:
         conn.close()

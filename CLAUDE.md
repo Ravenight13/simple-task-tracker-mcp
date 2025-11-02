@@ -191,11 +191,153 @@ create_task(
 - **Maintenance**: cleanup_deleted_tasks (purge >30 days old)
 - **Project Management**: list_projects, get_project_info, set_project_name
 - **Workspace Validation**: validate_task_workspace, audit_workspace_integrity (v0.4.0)
+- **Analytics**: get_usage_stats (v0.5.0)
 
 ### Auto-Capture Fields
 - `created_by`: Conversation ID from MCP context
 - `created_at`, `updated_at`: Automatic timestamps
 - `completed_at`: Set when status changes to 'done'
+
+## Usage Tracking and Analytics (v0.5.0)
+
+### Overview
+Task-mcp includes lightweight usage tracking to capture MCP tool call patterns for analytics and optimization.
+
+### Architecture
+
+**Storage:**
+- Usage data stored in master.db `tool_usage` table
+- Tracks: tool_name, workspace_id, timestamp, success/failure
+- Indexed on timestamp, tool_name, and workspace_id for efficient queries
+
+**Tracking Mechanism:**
+- `@track_usage` decorator wraps MCP tools
+- Auto-captures tool calls with workspace context
+- Graceful error handling - tracking failures never break tool execution
+- Currently applied to: list_tasks, create_task, get_task (proof of concept)
+
+### Database Schema
+
+**tool_usage table:**
+```sql
+CREATE TABLE tool_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tool_name TEXT NOT NULL,              -- Name of MCP tool called
+    workspace_id TEXT NOT NULL,           -- FK to projects.id (8-char hash)
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    success BOOLEAN NOT NULL DEFAULT 1,   -- 1 = success, 0 = failure
+    FOREIGN KEY (workspace_id) REFERENCES projects(id)
+)
+```
+
+**Indexes:**
+- `idx_tool_usage_timestamp` - For time-based queries
+- `idx_tool_usage_tool_name` - For filtering by tool
+- `idx_tool_usage_workspace` - For per-workspace analytics
+
+### MCP Tool: get_usage_stats
+
+**Query usage analytics for a workspace:**
+
+```python
+# Get last 30 days of usage stats (default)
+stats = get_usage_stats(workspace_path="/path/to/project")
+
+# Get last 7 days
+stats = get_usage_stats(workspace_path="/path/to/project", days=7)
+
+# Filter by specific tool
+stats = get_usage_stats(
+    workspace_path="/path/to/project",
+    days=30,
+    tool_name="create_task"
+)
+```
+
+**Returns:**
+```python
+{
+    "total_calls": 150,
+    "successful_calls": 145,
+    "success_rate": 96.67,
+    "tools": [
+        {
+            "tool_name": "list_tasks",
+            "calls": 50,
+            "successful": 50,
+            "success_rate": 100.0
+        },
+        {
+            "tool_name": "create_task",
+            "calls": 40,
+            "successful": 38,
+            "success_rate": 95.0
+        }
+    ],
+    "timeline": [
+        {"date": "2025-11-01", "calls": 25},
+        {"date": "2025-11-02", "calls": 30}
+    ],
+    "date_range": {
+        "start": "2025-10-03T16:00:00",
+        "end": "2025-11-02T16:00:00",
+        "days": 30
+    },
+    "filter": {
+        "workspace_id": "a1b2c3d4",
+        "tool_name": null
+    }
+}
+```
+
+### Use Cases
+
+**Phase 2 Consolidation Decisions:**
+- Identify rarely-used tools for consolidation
+- Validate migration impact (e.g., check if removed tools were heavily used)
+- Data-driven API optimization
+
+**Performance Monitoring:**
+- Track success rates to identify problematic tools
+- Identify usage patterns and peak times
+- Detect anomalies in tool call patterns
+
+**Workflow Analysis:**
+- Understand common task workflows
+- Identify which tools are used together
+- Optimize UI/UX based on actual usage
+
+### Performance Considerations
+
+**Minimal Overhead:**
+- Async/background recording (doesn't block tool execution)
+- Single INSERT operation per tool call
+- Graceful failure handling prevents cascading errors
+
+**Privacy:**
+- Only captures tool names and timestamps
+- No task content, descriptions, or user data stored
+- Workspace-scoped (no cross-project tracking without explicit query)
+
+### Extending Tracking
+
+**To add tracking to more tools:**
+1. Add `@track_usage` decorator before `@mcp.tool()`:
+   ```python
+   @track_usage
+   @mcp.tool()
+   def your_tool_name(...):
+       ...
+   ```
+2. Ensure tool accepts `workspace_path` parameter
+3. Tracking happens automatically
+
+**Currently tracked tools (proof of concept):**
+- list_tasks
+- create_task
+- get_task
+
+**Expansion:** Apply decorator to remaining tools as needed
 
 ## FastMCP Integration
 

@@ -40,17 +40,27 @@ def get_master_connection() -> sqlite3.Connection:
 
 def init_master_schema(conn: sqlite3.Connection) -> None:
     """
-    Initialize projects table.
+    Initialize master database schema.
 
-    Schema:
+    Projects table schema:
     - id TEXT PRIMARY KEY (8-char hash)
     - workspace_path TEXT UNIQUE NOT NULL
     - friendly_name TEXT
     - created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     - last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
-    Index:
+    Tool usage table schema:
+    - id INTEGER PRIMARY KEY AUTOINCREMENT
+    - tool_name TEXT NOT NULL
+    - workspace_id TEXT NOT NULL (FK to projects.id)
+    - timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    - success BOOLEAN NOT NULL DEFAULT 1
+
+    Indexes:
     - idx_last_accessed ON projects(last_accessed)
+    - idx_tool_usage_timestamp ON tool_usage(timestamp)
+    - idx_tool_usage_tool_name ON tool_usage(tool_name)
+    - idx_tool_usage_workspace ON tool_usage(workspace_id)
 
     Args:
         conn: SQLite connection to initialize
@@ -72,6 +82,31 @@ def init_master_schema(conn: sqlite3.Connection) -> None:
     # Create index for sorting by last access
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_last_accessed ON projects(last_accessed)
+    """)
+
+    # Create tool_usage table for tracking MCP tool calls
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tool_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tool_name TEXT NOT NULL,
+            workspace_id TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            success BOOLEAN NOT NULL DEFAULT 1,
+            FOREIGN KEY (workspace_id) REFERENCES projects(id)
+        )
+    """)
+
+    # Create indexes for efficient querying on tool_usage
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_timestamp ON tool_usage(timestamp)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_tool_name ON tool_usage(tool_name)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_workspace ON tool_usage(workspace_id)
     """)
 
     # Commit schema changes
@@ -136,5 +171,42 @@ def register_project(workspace_path: str) -> str:
         conn.commit()
         return project_id
 
+    finally:
+        conn.close()
+
+
+def get_project_id(workspace_path: str) -> str:
+    """
+    Get project hash ID for a workspace path.
+
+    Args:
+        workspace_path: Absolute path to project workspace
+
+    Returns:
+        Project hash ID (8 characters)
+    """
+    workspace_path = ensure_absolute_path(workspace_path)
+    return hash_workspace_path(workspace_path)
+
+
+def record_tool_usage(tool_name: str, workspace_id: str, success: bool = True) -> None:
+    """
+    Record MCP tool usage in master.db.
+
+    Args:
+        tool_name: Name of the MCP tool called
+        workspace_id: Project hash ID from projects table
+        success: Whether the tool call succeeded (default: True)
+    """
+    conn = get_master_connection()
+    try:
+        conn.execute("""
+            INSERT INTO tool_usage (tool_name, workspace_id, success)
+            VALUES (?, ?, ?)
+        """, (tool_name, workspace_id, success))
+        conn.commit()
+    except Exception:
+        # Silently fail - usage tracking shouldn't break tools
+        pass
     finally:
         conn.close()
