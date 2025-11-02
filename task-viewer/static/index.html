@@ -1455,10 +1455,12 @@ Created: ${this.formatDate(task.created_at)}`;
           // Search filter
           if (this.searchQuery && this.searchQuery.trim()) {
             const query = this.searchQuery.toLowerCase();
+            const queryAsNumber = parseInt(this.searchQuery, 10);
             filtered = filtered.filter(t =>
               (t?.title && t.title.toLowerCase().includes(query)) ||
               (t?.description && t.description.toLowerCase().includes(query)) ||
-              (t?.tags && t.tags.toLowerCase().includes(query))
+              (t?.tags && t.tags.toLowerCase().includes(query)) ||
+              (t?.id && !isNaN(queryAsNumber) && t.id === queryAsNumber)
             );
           }
 
