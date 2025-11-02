@@ -24,7 +24,7 @@ Task MCP Server is a lightweight Model Context Protocol (MCP) server for task an
 - `entities` table: Typed entities (file, other) with JSON metadata for flexible domain modeling
 - `task_entity_links` table: Many-to-many relationships between tasks and entities
 - Soft delete: `deleted_at` timestamp instead of hard deletion (30-day retention)
-- State machine: `todo → in_progress → blocked → done → cancelled`
+- State machine: `todo → in_progress → blocked → done → cancelled → to_be_deleted`
 
 ### Module Organization
 

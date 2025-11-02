@@ -24,7 +24,7 @@ from pydantic import (
 
 # Constants for validation
 MAX_DESCRIPTION_LENGTH = 10_000
-VALID_STATUSES = ("todo", "in_progress", "blocked", "done", "cancelled")
+VALID_STATUSES = ("todo", "in_progress", "blocked", "done", "cancelled", "to_be_deleted")
 VALID_PRIORITIES = ("low", "medium", "high")
 VALID_ENTITY_TYPES = ("file", "other")
 
@@ -58,11 +58,12 @@ def validate_status_transition(old_status: str, new_status: str) -> bool:
     Validate if a status transition is allowed.
 
     State machine transitions:
-    - todo -> in_progress, blocked, cancelled
-    - in_progress -> blocked, done, cancelled
-    - blocked -> in_progress, cancelled
+    - todo -> in_progress, blocked, cancelled, to_be_deleted
+    - in_progress -> blocked, done, cancelled, to_be_deleted
+    - blocked -> in_progress, cancelled, to_be_deleted
     - done -> (no transitions)
     - cancelled -> (no transitions)
+    - to_be_deleted -> (no transitions, terminal state)
 
     Args:
         old_status: Current task status
@@ -76,9 +77,11 @@ def validate_status_transition(old_status: str, new_status: str) -> bool:
         True
         >>> validate_status_transition("done", "in_progress")
         False
+        >>> validate_status_transition("todo", "to_be_deleted")
+        True
     """
     # Terminal states cannot transition
-    if old_status in ("done", "cancelled"):
+    if old_status in ("done", "cancelled", "to_be_deleted"):
         return old_status == new_status  # Only allow same status
 
     # Allow staying in same status
@@ -87,9 +90,9 @@ def validate_status_transition(old_status: str, new_status: str) -> bool:
 
     # Define valid transitions
     valid_transitions = {
-        "todo": {"in_progress", "blocked", "cancelled"},
-        "in_progress": {"blocked", "done", "cancelled"},
-        "blocked": {"in_progress", "cancelled"},
+        "todo": {"in_progress", "blocked", "cancelled", "to_be_deleted"},
+        "in_progress": {"blocked", "done", "cancelled", "to_be_deleted"},
+        "blocked": {"in_progress", "cancelled", "to_be_deleted"},
     }
 
     return new_status in valid_transitions.get(old_status, set())
@@ -232,7 +235,7 @@ class Task(BaseModel):
     # Status and priority
     status: str = Field(
         default="todo",
-        description="Task status: todo, in_progress, blocked, done, cancelled"
+        description="Task status: todo, in_progress, blocked, done, cancelled, to_be_deleted"
     )
     priority: str = Field(
         default="medium",

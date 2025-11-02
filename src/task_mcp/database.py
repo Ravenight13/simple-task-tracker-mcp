@@ -50,7 +50,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     - id INTEGER PRIMARY KEY AUTOINCREMENT
     - title TEXT NOT NULL
     - description TEXT (max 10k chars via app validation)
-    - status TEXT CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled'))
+    - status TEXT CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled', 'to_be_deleted'))
     - priority TEXT DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high'))
     - parent_task_id INTEGER (FK to tasks.id)
     - depends_on TEXT (JSON array)
@@ -116,7 +116,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             description TEXT,
-            status TEXT NOT NULL CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled')),
+            status TEXT NOT NULL CHECK(status IN ('todo', 'in_progress', 'blocked', 'done', 'cancelled', 'to_be_deleted')),
             priority TEXT DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
             parent_task_id INTEGER,
             depends_on TEXT,
