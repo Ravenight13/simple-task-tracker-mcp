@@ -204,15 +204,85 @@
     <!-- Filters Bar -->
     <div class="sticky top-16 z-30 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <!-- Smart Filters -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Filters:</span>
+
+          <button
+            @click="applySmartFilter('my-focus')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'my-focus'
+              ? 'bg-purple-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-gray-600'"
+            title="High priority + In Progress tasks"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span>My Focus</span>
+          </button>
+
+          <button
+            @click="applySmartFilter('ready-to-work')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'ready-to-work'
+              ? 'bg-green-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-gray-600'"
+            title="Todo tasks with no blockers"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Ready to Work</span>
+          </button>
+
+          <button
+            @click="applySmartFilter('blocked-work')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'blocked-work'
+              ? 'bg-red-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-gray-600'"
+            title="Blocked tasks OR tasks blocking others"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+            </svg>
+            <span>Blocked Work</span>
+          </button>
+
+          <button
+            @click="applySmartFilter('recently-completed')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'recently-completed'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'"
+            title="Recently completed tasks"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+            <span>Recently Completed</span>
+          </button>
+
+          <button
+            x-show="activeSmartFilter"
+            @click="clearSmartFilter()"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+            title="Clear smart filter"
+          >
+            <span>Clear Filter</span>
+          </button>
+        </div>
+
         <!-- Status chips with counts -->
         <div class="flex flex-wrap items-center gap-2 mb-3">
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
 
           <template x-for="status in ['all', 'todo', 'in_progress', 'done', 'blocked']" :key="status">
             <button
-              @click="statusFilter = status; applyFilters()"
+              @click="statusFilter = status; activeSmartFilter = null; applyFilters()"
               class="px-3 py-1 rounded-full text-sm font-medium transition-colors"
-              :class="statusFilter === status
+              :class="statusFilter === status && !activeSmartFilter
                 ? 'bg-blue-600 text-white'
                 : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'"
               :aria-pressed="statusFilter === status"
@@ -390,6 +460,7 @@
       >
         <template x-for="(task, index) in filteredTasks" :key="task.id">
           <div
+            x-data="{ showPreview: false, hoverTimeout: null }"
             @click="openTaskDetail(task)"
             class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 relative"
             role="button"
@@ -403,8 +474,23 @@
             </div>
 
             <!-- Header: Title + Status Badge + Blocker Indicator -->
-            <div class="flex items-start justify-between gap-3 pl-10">
+            <div
+              class="flex items-start justify-between gap-3 pl-10 relative"
+              @mouseenter="hoverTimeout = setTimeout(() => showPreview = true, 500)"
+              @mouseleave="clearTimeout(hoverTimeout); showPreview = false"
+            >
               <h3 class="flex-1 font-semibold text-gray-900 dark:text-gray-100 leading-snug" x-text="task?.title || 'Untitled'"></h3>
+
+              <!-- Hover Preview Tooltip -->
+              <div
+                x-show="showPreview && task?.description"
+                x-transition
+                class="absolute z-50 top-full left-0 mt-2 w-80 bg-gray-900 dark:bg-gray-700 text-white dark:text-gray-100 text-sm rounded-lg shadow-lg p-3 pointer-events-none"
+                style="max-width: calc(100vw - 2rem);"
+              >
+                <div class="font-semibold mb-1">Description Preview:</div>
+                <div class="text-gray-200 dark:text-gray-300" x-text="(task?.description || '').substring(0, 200) + ((task?.description || '').length > 200 ? '...' : '')"></div>
+              </div>
 
               <div class="flex items-center gap-2 flex-shrink-0">
                 <!-- Blocker Indicator (Red) - Shows when this task blocks other tasks -->
@@ -465,6 +551,35 @@
 
               <!-- Created date -->
               <span class="text-xs text-gray-500 dark:text-gray-400" x-text="formatRelativeTime(task?.created_at)"></span>
+            </div>
+
+            <!-- Quick Actions Bar -->
+            <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2">
+              <button
+                @click="copyTaskId(task, $event)"
+                class="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                title="Copy task ID to clipboard"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                </svg>
+                <span>Copy ID</span>
+              </button>
+
+              <button
+                @click="copyTaskDetails(task, $event)"
+                class="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                title="Copy task details to clipboard"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>Copy Details</span>
+              </button>
+
+              <div class="flex-1"></div>
+
+              <span class="text-xs text-gray-400 dark:text-gray-500">Task #<span x-text="task.id"></span></span>
             </div>
           </div>
         </template>
@@ -948,6 +1063,82 @@
           }, 3000);
         },
 
+        // Smart Filter Methods
+        applySmartFilter(filterName) {
+          // Clear active smart filter when manually changing filters
+          if (this.activeSmartFilter) {
+            this.activeSmartFilter = null;
+          }
+
+          // Reset manual filters when applying smart filter
+          this.statusFilter = 'all';
+          this.priorityFilter = 'all';
+          this.searchQuery = '';
+
+          switch (filterName) {
+            case 'my-focus':
+              this.statusFilter = 'in_progress';
+              this.priorityFilter = 'high';
+              this.activeSmartFilter = 'my-focus';
+              break;
+            case 'ready-to-work':
+              this.statusFilter = 'todo';
+              this.activeSmartFilter = 'ready-to-work';
+              break;
+            case 'blocked-work':
+              this.statusFilter = 'blocked';
+              this.activeSmartFilter = 'blocked-work';
+              break;
+            case 'recently-completed':
+              this.statusFilter = 'done';
+              this.setSortBy('created');
+              this.sortOrder = 'desc';
+              this.activeSmartFilter = 'recently-completed';
+              break;
+            default:
+              this.activeSmartFilter = null;
+          }
+
+          this.applyFilters();
+        },
+
+        clearSmartFilter() {
+          this.activeSmartFilter = null;
+          this.statusFilter = 'all';
+          this.priorityFilter = 'all';
+          this.searchQuery = '';
+          this.applyFilters();
+        },
+
+        // Quick Actions (clipboard operations)
+        async copyTaskId(task, event) {
+          event.stopPropagation();
+          try {
+            await navigator.clipboard.writeText(String(task.id));
+            this.showToast('success', `Task ID ${task.id} copied to clipboard`);
+          } catch (err) {
+            console.error('Failed to copy task ID:', err);
+            this.showToast('error', 'Failed to copy task ID');
+          }
+        },
+
+        async copyTaskDetails(task, event) {
+          event.stopPropagation();
+          try {
+            const details = `Task #${task.id}: ${task.title}
+Status: ${task.status}
+Priority: ${task.priority}
+${task.description ? 'Description: ' + task.description : ''}
+Created: ${this.formatDate(task.created_at)}`;
+
+            await navigator.clipboard.writeText(details);
+            this.showToast('success', 'Task details copied to clipboard');
+          } catch (err) {
+            console.error('Failed to copy task details:', err);
+            this.showToast('error', 'Failed to copy task details');
+          }
+        },
+
         // Filter Methods (client-side for instant response)
         applyFilters() {
           let filtered = [...(this.tasks || [])];
@@ -960,6 +1151,17 @@
           // Priority filter
           if (this.priorityFilter !== 'all') {
             filtered = filtered.filter(t => t?.priority === this.priorityFilter);
+          }
+
+          // Smart filter specific logic
+          if (this.activeSmartFilter === 'ready-to-work') {
+            // Exclude blockers from "Ready to Work"
+            filtered = filtered.filter(t => !t?.is_blocker && t?.status === 'todo');
+          }
+
+          if (this.activeSmartFilter === 'blocked-work') {
+            // Include both blocked status AND blocker tasks
+            filtered = this.tasks.filter(t => t?.status === 'blocked' || t?.is_blocker);
           }
 
           // Search filter
