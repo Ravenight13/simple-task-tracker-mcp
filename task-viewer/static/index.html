@@ -266,6 +266,20 @@
           </button>
 
           <button
+            @click="applySmartFilter('parent-tasks')"
+            class="px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1"
+            :class="activeSmartFilter === 'parent-tasks'
+              ? 'bg-cyan-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-cyan-50 dark:hover:bg-gray-600'"
+            title="Only show parent tasks (no subtasks)"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <span>Parent Tasks</span>
+          </button>
+
+          <button
             x-show="activeSmartFilter"
             @click="clearSmartFilter()"
             class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
@@ -1208,6 +1222,9 @@
               this.sortOrder = 'desc';
               this.activeSmartFilter = 'recently-completed';
               break;
+            case 'parent-tasks':
+              this.activeSmartFilter = 'parent-tasks';
+              break;
             default:
               this.activeSmartFilter = null;
           }
@@ -1275,6 +1292,11 @@ Created: ${this.formatDate(task.created_at)}`;
           if (this.activeSmartFilter === 'blocked-work') {
             // Include both blocked status AND blocker tasks
             filtered = this.tasks.filter(t => t?.status === 'blocked' || t?.is_blocker);
+          }
+
+          if (this.activeSmartFilter === 'parent-tasks') {
+            // Only show tasks that have no parent (parent_task_id is null/undefined)
+            filtered = filtered.filter(t => !t?.parent_task_id);
           }
 
           // Search filter
@@ -1432,7 +1454,8 @@ Created: ${this.formatDate(task.created_at)}`;
               }
 
               const data = await response.json();
-              this.subtasksCache[taskId] = data.subtasks || [];
+              // API returns task with 'subtasks' field containing nested subtasks array
+              this.subtasksCache[taskId] = data?.subtasks || [];
             } catch (err) {
               console.error('Error loading subtasks:', err);
               this.showToast('error', `Failed to load subtasks: ${err.message}`);
