@@ -2069,19 +2069,46 @@
         },
 
         openEntityModal(entity) {
-          // Placeholder for entity detail modal (Task #117)
-          console.log('Opening entity modal for:', entity);
-          alert(`Entity Detail Modal\n\nName: ${entity.name}\nType: ${entity.entity_type}\nID: ${entity.id}\n\n(Full modal coming in Task #117)`);
+          this.selectedEntity = entity;
+          this.entityModalOpen = true;
+          this.loadEntityTasks(entity.id);
         },
 
-
-
-        openEntityModal(entity) {
-          // Placeholder for entity detail modal (Task #117)
-          console.log('Opening entity modal for:', entity);
-          alert(`Entity Detail Modal\n\nName: ${entity.name}\nType: ${entity.entity_type}\nID: ${entity.id}\n\n(Full modal coming in Task #117)`);
+        closeEntityModal() {
+          this.entityModalOpen = false;
+          setTimeout(() => {
+            this.selectedEntity = null;
+            this.entityTasks = [];
+          }, 300);
         },
 
+        async loadEntityTasks(entityId) {
+          try {
+            const params = new URLSearchParams({
+              workspace_path: this.currentProject.workspace_path
+            });
+
+            const response = await fetch(
+              `${API_CONFIG.getBaseUrl()}/api/entities/${entityId}/tasks?${params.toString()}`,
+              {
+                headers: {
+                  'X-API-Key': API_CONFIG.getApiKey()
+                }
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            this.entityTasks = data.tasks || [];
+          } catch (err) {
+            console.error('Error loading entity tasks:', err);
+            this.showToast('error', 'Failed to load entity tasks');
+            this.entityTasks = [];
+          }
+        },
         // Smart Filter Methods
         applySmartFilter(filterName) {
           // Clear active smart filter when manually changing filters
