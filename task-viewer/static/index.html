@@ -202,8 +202,75 @@
       </div>
     </header>
 
-    <!-- Filters Bar -->
-    <div class="sticky top-16 z-30 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <!-- Tab Navigation -->
+    <div class="sticky top-16 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav class="flex space-x-8" aria-label="Main tabs">
+          <!-- Tasks Tab -->
+          <button
+            @click="switchTab('tasks')"
+            class="relative py-4 px-1 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            :class="{
+              'text-blue-600 dark:text-blue-400': activeTab === 'tasks',
+              'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300': activeTab !== 'tasks'
+            }"
+            :aria-current="activeTab === 'tasks' ? 'page' : undefined"
+          >
+            <span class="flex items-center gap-2">
+              Tasks
+              <span
+                x-show="statusCounts.total > 0"
+                x-text="statusCounts.total"
+                class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold rounded-full transition-colors"
+                :class="{
+                  'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300': activeTab === 'tasks',
+                  'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300': activeTab !== 'tasks'
+                }"
+              ></span>
+            </span>
+            <!-- Active indicator -->
+            <span
+              x-show="activeTab === 'tasks'"
+              class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              aria-hidden="true"
+            ></span>
+          </button>
+
+          <!-- Entities Tab -->
+          <button
+            @click="switchTab('entities')"
+            class="relative py-4 px-1 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            :class="{
+              'text-blue-600 dark:text-blue-400': activeTab === 'entities',
+              'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300': activeTab !== 'entities'
+            }"
+            :aria-current="activeTab === 'entities' ? 'page' : undefined"
+          >
+            <span class="flex items-center gap-2">
+              Entities
+              <span
+                x-show="entityStats.total > 0"
+                x-text="entityStats.total"
+                class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold rounded-full transition-colors"
+                :class="{
+                  'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300': activeTab === 'entities',
+                  'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300': activeTab !== 'entities'
+                }"
+              ></span>
+            </span>
+            <!-- Active indicator -->
+            <span
+              x-show="activeTab === 'entities'"
+              class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              aria-hidden="true"
+            ></span>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Filters Bar (Tasks Only) -->
+    <div x-show="activeTab === 'tasks'" class="sticky top-[120px] z-20 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <!-- Tag Filter -->
         <div class="flex flex-wrap items-center gap-2 mb-3" x-data="{ open: false }">
@@ -1100,16 +1167,29 @@
         error: null,
         showModal: false,
         refreshing: false,
+        activeTab: 'tasks',  // 'tasks' | 'entities'
         toast: {
           show: false,
           type: 'success',
           message: ''
         },
 
+        // Entities State
+        entities: [],
+        entityStats: {
+          total: 0,
+          file: 0,
+          other: 0
+        },
+
         // Lifecycle
         async init() {
           // Set up global handler for nested subtask clicks
           window.__taskViewerOpenTask = (task) => this.openTaskDetail(task);
+
+          // Handle URL hash for tab routing
+          this.handleHashChange();
+          window.addEventListener('hashchange', () => this.handleHashChange());
 
           // Check for API key
           if (!this.apiKey) {
@@ -1122,7 +1202,24 @@
             this.currentProject = this.projects[0];
             await this.loadTasks();
             await this.loadTags();
+            await this.loadEntityStats();
           }
+        },
+
+        // Hash routing handler
+        handleHashChange() {
+          const hash = window.location.hash.slice(1); // Remove '#'
+          if (hash === 'entities') {
+            this.activeTab = 'entities';
+          } else {
+            this.activeTab = 'tasks';
+          }
+        },
+
+        // Switch tab and update URL hash
+        switchTab(tab) {
+          this.activeTab = tab;
+          window.location.hash = tab === 'entities' ? '#entities' : '';
         },
 
         // API Methods
@@ -1215,6 +1312,33 @@
           } catch (err) {
             console.error('Error loading tags:', err);
             this.tags = [];
+          }
+        },
+
+        async loadEntityStats() {
+          if (!this.currentProject) {
+            this.entityStats = { total: 0, file: 0, other: 0 };
+            return;
+          }
+
+          try {
+            const params = new URLSearchParams({
+              project_id: this.currentProject.id,
+            });
+
+            const response = await fetch(`${API_CONFIG.baseUrl}/entities/stats?${params}`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to load entity stats: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.entityStats = data.stats || { total: 0, file: 0, other: 0 };
+          } catch (err) {
+            console.error('Error loading entity stats:', err);
+            this.entityStats = { total: 0, file: 0, other: 0 };
           }
         },
 
@@ -1585,6 +1709,28 @@ Created: ${this.formatDate(task.created_at)}`;
           if (diffHours < 24) return `${diffHours}h ago`;
           if (diffDays < 7) return `${diffDays}d ago`;
           return this.formatDate(dateString);
+        },
+
+        // Metadata Helper Methods
+        formatJSON(jsonString) {
+          if (!jsonString) return '';
+          try {
+            const obj = JSON.parse(jsonString);
+            return JSON.stringify(obj, null, 2);
+          } catch (e) {
+            return jsonString; // Return as-is if not valid JSON
+          }
+        },
+
+        async copyMetadata(metadata) {
+          if (!metadata) return;
+          try {
+            await navigator.clipboard.writeText(this.formatJSON(metadata));
+            this.showToast('success', 'Metadata copied to clipboard');
+          } catch (err) {
+            console.error('Failed to copy metadata:', err);
+            this.showToast('error', 'Failed to copy metadata');
+          }
         },
 
         // Hierarchy Methods
