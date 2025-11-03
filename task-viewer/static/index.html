@@ -469,9 +469,9 @@
 
           <template x-for="status in ['all', 'todo', 'in_progress', 'done', 'blocked', 'to_be_deleted']" :key="status">
             <button
-              @click="statusFilter = status; activeSmartFilter = null; applyFilters()"
+              @click="statusFilter = status; if (activeSmartFilter && activeSmartFilter !== 'parent-tasks') activeSmartFilter = null; applyFilters()"
               class="px-3 py-1 rounded-full text-sm font-medium transition-colors"
-              :class="statusFilter === status && !activeSmartFilter
+              :class="statusFilter === status && (activeSmartFilter === 'parent-tasks' || !activeSmartFilter)
                 ? 'bg-blue-600 text-white'
                 : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'"
               :aria-pressed="statusFilter === status"
@@ -636,10 +636,10 @@
         </svg>
         <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No tasks found</h3>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          <template x-if="searchQuery || statusFilter !== 'all' || priorityFilter !== 'all'">
+          <template x-if="searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || activeSmartFilter">
             <span>Try adjusting your filters</span>
           </template>
-          <template x-if="!searchQuery && statusFilter === 'all' && priorityFilter === 'all'">
+          <template x-if="!searchQuery && statusFilter === 'all' && priorityFilter === 'all' && !activeSmartFilter">
             <span>This project has no tasks yet</span>
           </template>
         </p>
