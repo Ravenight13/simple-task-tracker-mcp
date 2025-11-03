@@ -30,12 +30,15 @@ from models import (
     EntityListResponse,
     EntityResponse,
     EntitySearchResponse,
+    EntityStatsResponse,
+    EntityTypeCount,
     ErrorResponse,
     HealthCheckResponse,
     ProjectInfoResponse,
     ProjectListResponse,
     ProjectResponse,
     ProjectStatsResponse,
+    TagCount,
     TaskListResponse,
     TaskResponse,
     TaskSearchResponse,
@@ -838,6 +841,70 @@ async def get_entity(
         raise ValueError(f"Entity with ID {entity_id} not found or deleted")
 
     return EntityResponse(**entity_data)
+
+
+@app.get("/api/entities/stats", response_model=EntityStatsResponse)
+async def get_entity_stats(
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+):
+    """
+    Get entity statistics including counts by type and top tags.
+
+    Query Parameters:
+        - project_id: Filter by project hash ID
+
+    Returns:
+        Entity statistics with:
+        - total: Total entity count
+        - by_type: Counts by entity type (file, other)
+        - top_tags: Top 10 tags by frequency
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Call task-mcp to get all entities (no filters)
+    entities_data = await mcp_service.call_tool(
+        "list_entities", {"workspace_path": resolved_workspace}
+    )
+
+    # Calculate total count
+    total = len(entities_data)
+
+    # Calculate counts by type
+    file_count = sum(1 for e in entities_data if e.get("entity_type") == "file")
+    other_count = sum(1 for e in entities_data if e.get("entity_type") == "other")
+
+    # Extract and count tags
+    tag_counts: dict[str, int] = {}
+    for entity in entities_data:
+        tags_str = entity.get("tags")
+        if tags_str:
+            # Tags are space-separated
+            tags = tags_str.strip().split()
+            for tag in tags:
+                tag = tag.strip()
+                if tag:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    # Convert to list of TagCount objects sorted by count (descending), take top 10
+    top_tags_list = [
+        TagCount(tag=tag, count=count) for tag, count in tag_counts.items()
+    ]
+    top_tags_list.sort(key=lambda x: (-x.count, x.tag))  # Sort by count desc, then name asc
+    top_tags = top_tags_list[:10]  # Take top 10
+
+    return EntityStatsResponse(
+        total=total,
+        by_type=EntityTypeCount(file=file_count, other=other_count),
+        top_tags=top_tags,
+    )
 
 
 # Mount static files for frontend

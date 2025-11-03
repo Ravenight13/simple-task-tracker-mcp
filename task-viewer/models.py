@@ -159,3 +159,29 @@ class EntitySearchResponse(BaseModel):
     total: int = Field(..., description="Total number of search results")
     query: str = Field(..., description="Search query string")
     limit: int = Field(20, description="Maximum results returned")
+
+
+class TagCount(BaseModel):
+    """Tag with occurrence count."""
+
+    tag: str = Field(..., description="Tag name")
+    count: int = Field(..., description="Number of entities with this tag")
+
+
+class EntityTypeCount(BaseModel):
+    """Entity counts by type."""
+
+    file: int = Field(0, description="Number of file entities")
+    other: int = Field(0, description="Number of other entities")
+
+
+class EntityStatsResponse(BaseModel):
+    """Response model for entity statistics.
+
+    Provides aggregate statistics about entities including counts by type
+    and top tags with frequencies.
+    """
+
+    total: int = Field(..., description="Total number of entities")
+    by_type: EntityTypeCount = Field(..., description="Entity counts by type")
+    top_tags: list[TagCount] = Field(..., description="Top 10 tags by frequency")
