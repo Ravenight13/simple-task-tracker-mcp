@@ -899,7 +899,10 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Other Entities</p>
-                <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100" x-text="entityStats.other"></p>
+                <div class="flex items-baseline gap-2">
+                  <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100" x-text="entityStats.other"></p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400" x-text="'(' + calculatePercentage(entityStats.other, entityStats.total) + '%)'"></p>
+                </div>
               </div>
               <div class="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
                 <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -908,6 +911,24 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Top Tags Section -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700 mb-6">
+          <h4 class="text-sm font-semibold mb-4 text-gray-700 dark:text-gray-300">Top Tags</h4>
+          <template x-if="entityStats.top_tags && entityStats.top_tags.length > 0">
+            <div class="space-y-2">
+              <template x-for="tag in entityStats.top_tags.slice(0, 5)" :key="tag.tag">
+                <div class="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                  <span class="text-gray-600 dark:text-gray-400 font-medium" x-text="tag.tag"></span>
+                  <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-xs font-semibold" x-text="tag.count"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+          <template x-if="!entityStats.top_tags || entityStats.top_tags.length === 0">
+            <p class="text-sm text-gray-500 dark:text-gray-400 italic">No tags found</p>
+          </template>
         </div>
 
         <!-- Entity Search Bar -->
@@ -1697,7 +1718,8 @@
         entityStats: {
           total: 0,
           file: 0,
-          other: 0
+          other: 0,
+          top_tags: []
         },
         entitySearch: '',
         searchLoading: false,
@@ -1856,7 +1878,7 @@
 
         async loadEntityStats() {
           if (!this.currentProject) {
-            this.entityStats = { total: 0, file: 0, other: 0 };
+            this.entityStats = { total: 0, file: 0, other: 0, top_tags: [] };
             return;
           }
 
@@ -1874,10 +1896,10 @@
             }
 
             const data = await response.json();
-            this.entityStats = data.stats || { total: 0, file: 0, other: 0 };
+            this.entityStats = data.stats || { total: 0, file: 0, other: 0, top_tags: [] };
           } catch (err) {
             console.error('Error loading entity stats:', err);
-            this.entityStats = { total: 0, file: 0, other: 0 };
+            this.entityStats = { total: 0, file: 0, other: 0, top_tags: [] };
           }
         },
 
@@ -2366,6 +2388,11 @@ Created: ${this.formatDate(task.created_at)}`;
           if (diffHours < 24) return `${diffHours}h ago`;
           if (diffDays < 7) return `${diffDays}d ago`;
           return this.formatDate(dateString);
+        },
+
+        calculatePercentage(count, total) {
+          if (!total || total === 0) return 0;
+          return Math.round((count / total) * 100);
         },
 
         // Metadata Helper Methods
