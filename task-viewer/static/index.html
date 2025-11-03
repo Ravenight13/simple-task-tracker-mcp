@@ -1862,7 +1862,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       <button
-                        @click="sortRelatedTasks('id')"
+                        @click.stop="sortRelatedTasks('id')"
                         class="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                       >
                         ID
@@ -1878,7 +1878,7 @@
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       <button
-                        @click="sortRelatedTasks('title')"
+                        @click.stop="sortRelatedTasks('title')"
                         class="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                       >
                         Title
@@ -1894,7 +1894,7 @@
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       <button
-                        @click="sortRelatedTasks('status')"
+                        @click.stop="sortRelatedTasks('status')"
                         class="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                       >
                         Status
@@ -1910,7 +1910,7 @@
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       <button
-                        @click="sortRelatedTasks('priority')"
+                        @click.stop="sortRelatedTasks('priority')"
                         class="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                       >
                         Priority
