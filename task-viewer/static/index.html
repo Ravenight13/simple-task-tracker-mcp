@@ -1780,6 +1780,17 @@
           message: ''
         },
 
+        // Detail page state
+        showDetailPage: false,
+        detailPageTask: null,
+        detailPageSubtasks: [],
+        detailPageRelatedTasks: {
+          parent: null,
+          children: [],
+          dependencies: [],
+          blocking: []
+        },
+
         // Entities State
         entities: [],
         entityStats: {
@@ -2682,6 +2693,24 @@ Created: ${this.formatDate(task.created_at)}`;
             return depIds.map(id => this.tasks.find(t => t.id === id)).filter(Boolean);
           } catch {
             return [];
+          }
+        },
+
+        getSubtasks(parentId) {
+          // First check cache from tree endpoint
+          if (this.subtasksCache[parentId]) {
+            return this.subtasksCache[parentId];
+          }
+          // Fall back to filtering tasks array
+          return this.tasks.filter(t => t.parent_task_id === parentId);
+        },
+
+        openTaskById(taskId) {
+          const task = this.tasks.find(t => t.id === taskId);
+          if (task) {
+            this.openTaskDetail(task);
+          } else {
+            this.showToast('error', `Task #${taskId} not found`);
           }
         },
 
