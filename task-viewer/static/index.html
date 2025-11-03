@@ -1428,6 +1428,25 @@
                 </p>
               </div>
 
+              <!-- Subtasks (child tasks) -->
+              <div class="mt-6" x-show="countSubtasks(selectedTask) > 0">
+                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Subtasks (<span x-text="countSubtasks(selectedTask)"></span>)
+                </h3>
+                <div class="mt-2 space-y-2">
+                  <template x-for="subtask in getSubtasks(selectedTask.id)" :key="subtask.id">
+                    <button
+                      @click="openTaskDetail(subtask)"
+                      class="block w-full text-left px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <span class="text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + subtask.id"></span>
+                      <span class="ml-2 text-gray-900 dark:text-gray-100" x-text="subtask.title"></span>
+                      <span class="ml-2 text-xs text-gray-500" x-text="subtask.status"></span>
+                    </button>
+                  </template>
+                </div>
+              </div>
+
               <!-- Metadata grid -->
               <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
