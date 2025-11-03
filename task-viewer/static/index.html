@@ -1148,7 +1148,7 @@
         </div>
 
         <!-- Entity Cards Grid -->
-        <div x-show="entities.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div id="entities-container" x-show="entities.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <template x-for="entity in entities" :key="entity.id">
             <div
               @click="openEntityModal(entity)"
@@ -1191,6 +1191,73 @@
               </div>
             </div>
           </template>
+        </div>
+
+        <!-- Entity Pagination Controls -->
+        <div
+          x-show="entities.length > 0 && entityTotalPages > 1"
+          id="entity-pagination"
+          class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+        >
+          <!-- Results summary -->
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            Showing
+            <span class="font-semibold" x-text="entityPaginationStart"></span>-<span class="font-semibold" x-text="entityPaginationEnd"></span>
+            of
+            <span class="font-semibold" x-text="entityTotalEntities"></span>
+            entities
+          </p>
+
+          <!-- Page navigation -->
+          <div class="flex items-center gap-2">
+            <button
+              @click="entityPreviousPage()"
+              :disabled="entityCurrentPage === 1"
+              :class="entityCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'"
+              class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors"
+              aria-label="Previous page"
+            >
+              Previous
+            </button>
+
+            <!-- Page numbers (show max 5) -->
+            <template x-for="page in entityVisiblePages" :key="page">
+              <button
+                @click="entityGoToPage(page)"
+                :class="entityCurrentPage === page ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600'"
+                class="px-3 py-1 border rounded text-sm font-medium transition-colors"
+                :aria-label="'Go to page ' + page"
+                :aria-current="entityCurrentPage === page ? 'page' : undefined"
+                x-text="page"
+              >
+              </button>
+            </template>
+
+            <button
+              @click="entityNextPage()"
+              :disabled="entityCurrentPage >= entityTotalPages"
+              :class="entityCurrentPage >= entityTotalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'"
+              class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors"
+              aria-label="Next page"
+            >
+              Next
+            </button>
+          </div>
+
+          <!-- Page size selector -->
+          <div class="flex items-center gap-2">
+            <label for="entity-page-size" class="text-sm text-gray-600 dark:text-gray-400">Per page:</label>
+            <select
+              id="entity-page-size"
+              x-model.number="entityFilters.limit"
+              @change="changeEntityPageSize()"
+              class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
         </div>
 
         <!-- Empty State -->
@@ -2069,10 +2136,24 @@
             return;
           }
 
+          this.entitiesLoading = true;
+
           try {
             const params = new URLSearchParams({
               project_id: this.currentProject.id,
+              limit: this.entityFilters.limit.toString(),
+              offset: this.entityFilters.offset.toString()
             });
+
+            // Add type filter if set
+            if (this.entityFilters.type) {
+              params.append('entity_type', this.entityFilters.type);
+            }
+
+            // Add tag filter if set
+            if (this.selectedEntityTag) {
+              params.append('tags', this.selectedEntityTag);
+            }
 
             const response = await fetch(`${API_CONFIG.baseUrl}/entities?${params}`, {
               headers: { 'X-API-Key': this.apiKey }
@@ -2084,9 +2165,102 @@
 
             const data = await response.json();
             this.entities = data.entities || [];
+            this.entityTotalEntities = data.total || 0;
+            this.entityTotalPages = Math.ceil(this.entityTotalEntities / this.entityFilters.limit);
           } catch (err) {
             console.error('Error loading entities:', err);
             this.entities = [];
+            this.entityTotalEntities = 0;
+            this.entityTotalPages = 1;
+          } finally {
+            this.entitiesLoading = false;
+          }
+        },
+
+        selectEntityType(type) {
+          this.entityFilters.type = type;
+          this.entityFilters.offset = 0;
+          this.entityCurrentPage = 1;
+          this.loadEntities();
+        },
+
+        selectEntityTag(tag) {
+          this.selectedEntityTag = tag;
+          this.entityFilters.offset = 0;
+          this.entityCurrentPage = 1;
+          this.loadEntities();
+        },
+
+        clearEntityFilters() {
+          this.entityFilters.type = '';
+          this.selectedEntityTag = null;
+          this.entityFilters.offset = 0;
+          this.entityCurrentPage = 1;
+          this.loadEntities();
+        },
+
+        // Entity pagination computed properties
+        get entityPaginationStart() {
+          return this.entityTotalEntities === 0 ? 0 : (this.entityCurrentPage - 1) * this.entityFilters.limit + 1;
+        },
+
+        get entityPaginationEnd() {
+          return Math.min(this.entityCurrentPage * this.entityFilters.limit, this.entityTotalEntities);
+        },
+
+        get entityVisiblePages() {
+          const pages = [];
+          const total = this.entityTotalPages;
+          const current = this.entityCurrentPage;
+
+          // Show max 5 pages centered around current
+          let start = Math.max(1, current - 2);
+          let end = Math.min(total, start + 4);
+
+          if (end - start < 4) {
+            start = Math.max(1, end - 4);
+          }
+
+          for (let i = start; i <= end; i++) {
+            pages.push(i);
+          }
+
+          return pages;
+        },
+
+        // Entity pagination navigation methods
+        entityPreviousPage() {
+          if (this.entityCurrentPage > 1) {
+            this.entityCurrentPage--;
+            this.loadEntitiesPage();
+          }
+        },
+
+        entityNextPage() {
+          if (this.entityCurrentPage < this.entityTotalPages) {
+            this.entityCurrentPage++;
+            this.loadEntitiesPage();
+          }
+        },
+
+        entityGoToPage(page) {
+          this.entityCurrentPage = page;
+          this.loadEntitiesPage();
+        },
+
+        changeEntityPageSize() {
+          this.entityCurrentPage = 1;
+          this.loadEntitiesPage();
+        },
+
+        loadEntitiesPage() {
+          this.entityFilters.offset = (this.entityCurrentPage - 1) * this.entityFilters.limit;
+          this.loadEntities();
+
+          // Scroll to top of entity list
+          const container = document.getElementById('entities-container');
+          if (container) {
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         },
 
