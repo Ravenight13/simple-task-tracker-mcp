@@ -746,13 +746,17 @@
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                <span>
-                  Depends:
-                  <span
-                    x-text="(() => { try { const deps = JSON.parse(task.depends_on || '[]'); return deps.map(id => `#${id}`).join(', '); } catch { return ''; } })()"
-                    class="font-semibold"
-                  ></span>
-                </span>
+                <span>Depends:</span>
+                <template x-for="(depId, index) in (() => { try { return JSON.parse(task.depends_on || '[]'); } catch { return []; } })()" :key="depId">
+                  <span class="font-semibold">
+                    <button
+                      @click.stop="openTaskById(depId)"
+                      class="text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:underline cursor-pointer"
+                      :title="`Click to view dependency #${depId}`"
+                      x-text="'#' + depId"
+                    ></button><span x-show="index < (() => { try { return JSON.parse(task.depends_on || '[]').length - 1; } catch { return 0; } })()">,</span>
+                  </span>
+                </template>
               </div>
 
               <!-- Blocker Indicator (Red) - Shows when this task blocks other tasks -->
