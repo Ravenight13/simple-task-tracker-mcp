@@ -1864,6 +1864,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Priority</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Blocking</th>
                   </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1881,9 +1882,36 @@
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + detailPageRelatedTasks.parent.id"></td>
                       <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100" x-text="detailPageRelatedTasks.parent.title"></td>
                       <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-medium rounded" x-text="detailPageRelatedTasks.parent.status"></span>
+                        <span
+                          class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          :class="{
+                            'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': detailPageRelatedTasks.parent.status === 'todo',
+                            'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': detailPageRelatedTasks.parent.status === 'in_progress',
+                            'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': detailPageRelatedTasks.parent.status === 'done',
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': detailPageRelatedTasks.parent.status === 'blocked',
+                            'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': detailPageRelatedTasks.parent.status === 'to_be_deleted'
+                          }"
+                          x-text="detailPageRelatedTasks.parent.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"
+                        ></span>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm" x-text="detailPageRelatedTasks.parent.priority"></td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span
+                          class="px-2 py-0.5 rounded text-xs font-medium"
+                          :class="{
+                            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': detailPageRelatedTasks.parent.priority === 'low',
+                            'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': detailPageRelatedTasks.parent.priority === 'medium',
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': detailPageRelatedTasks.parent.priority === 'high'
+                          }"
+                          x-text="detailPageRelatedTasks.parent.priority.charAt(0).toUpperCase() + detailPageRelatedTasks.parent.priority.slice(1)"
+                        ></span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span x-show="detailPageRelatedTasks.parent.is_blocker" class="inline-flex items-center justify-center">
+                          <svg class="h-4 w-4 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20" title="This task blocks other tasks">
+                            <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+                          </svg>
+                        </span>
+                      </td>
                     </tr>
                   </template>
 
@@ -1899,11 +1927,43 @@
                         </span>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + child.id"></td>
-                      <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100" x-text="child.title"></td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-medium rounded" x-text="child.status"></span>
+                      <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <div class="flex items-center gap-2">
+                          <span class="text-gray-400 dark:text-gray-500">└─</span>
+                          <span x-text="child.title"></span>
+                        </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm" x-text="child.priority"></td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span
+                          class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          :class="{
+                            'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': child.status === 'todo',
+                            'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': child.status === 'in_progress',
+                            'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': child.status === 'done',
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': child.status === 'blocked',
+                            'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': child.status === 'to_be_deleted'
+                          }"
+                          x-text="child.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"
+                        ></span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span
+                          class="px-2 py-0.5 rounded text-xs font-medium"
+                          :class="{
+                            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': child.priority === 'low',
+                            'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': child.priority === 'medium',
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': child.priority === 'high'
+                          }"
+                          x-text="child.priority.charAt(0).toUpperCase() + child.priority.slice(1)"
+                        ></span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span x-show="child.is_blocker" class="inline-flex items-center justify-center">
+                          <svg class="h-4 w-4 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20" title="This task blocks other tasks">
+                            <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+                          </svg>
+                        </span>
+                      </td>
                     </tr>
                   </template>
 
@@ -1921,9 +1981,36 @@
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + dep.id"></td>
                       <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100" x-text="dep.title"></td>
                       <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-medium rounded" x-text="dep.status"></span>
+                        <span
+                          class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          :class="{
+                            'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': dep.status === 'todo',
+                            'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': dep.status === 'in_progress',
+                            'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': dep.status === 'done',
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': dep.status === 'blocked',
+                            'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': dep.status === 'to_be_deleted'
+                          }"
+                          x-text="dep.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"
+                        ></span>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm" x-text="dep.priority"></td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span
+                          class="px-2 py-0.5 rounded text-xs font-medium"
+                          :class="{
+                            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': dep.priority === 'low',
+                            'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': dep.priority === 'medium',
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': dep.priority === 'high'
+                          }"
+                          x-text="dep.priority.charAt(0).toUpperCase() + dep.priority.slice(1)"
+                        ></span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span x-show="dep.is_blocker" class="inline-flex items-center justify-center">
+                          <svg class="h-4 w-4 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20" title="This task blocks other tasks">
+                            <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+                          </svg>
+                        </span>
+                      </td>
                     </tr>
                   </template>
 
@@ -1941,15 +2028,42 @@
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + blocked.id"></td>
                       <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100" x-text="blocked.title"></td>
                       <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-medium rounded" x-text="blocked.status"></span>
+                        <span
+                          class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          :class="{
+                            'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200': blocked.status === 'todo',
+                            'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': blocked.status === 'in_progress',
+                            'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': blocked.status === 'done',
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': blocked.status === 'blocked',
+                            'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': blocked.status === 'to_be_deleted'
+                          }"
+                          x-text="blocked.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"
+                        ></span>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm" x-text="blocked.priority"></td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span
+                          class="px-2 py-0.5 rounded text-xs font-medium"
+                          :class="{
+                            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300': blocked.priority === 'low',
+                            'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': blocked.priority === 'medium',
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': blocked.priority === 'high'
+                          }"
+                          x-text="blocked.priority.charAt(0).toUpperCase() + blocked.priority.slice(1)"
+                        ></span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span x-show="blocked.is_blocker" class="inline-flex items-center justify-center">
+                          <svg class="h-4 w-4 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20" title="This task blocks other tasks">
+                            <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+                          </svg>
+                        </span>
+                      </td>
                     </tr>
                   </template>
 
                   <!-- Empty State -->
                   <tr x-show="!detailPageRelatedTasks.parent && detailPageRelatedTasks.children.length === 0 && detailPageRelatedTasks.dependencies.length === 0 && detailPageRelatedTasks.blocking.length === 0">
-                    <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
                       No related tasks
                     </td>
                   </tr>
