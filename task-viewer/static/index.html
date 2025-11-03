@@ -1471,7 +1471,12 @@
 
                 <div x-show="selectedTask?.parent_task_id" class="sm:col-span-2">
                   <span class="font-semibold text-gray-700 dark:text-gray-300">Parent Task:</span>
-                  <span class="ml-2 text-gray-600 dark:text-gray-400" x-text="'#' + (selectedTask?.parent_task_id || '')"></span>
+                  <button
+                    @click="openTaskById(selectedTask.parent_task_id)"
+                    class="ml-2 text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+                    :title="`Click to view parent task #${selectedTask.parent_task_id}`"
+                    x-text="'#' + (selectedTask?.parent_task_id || '')"
+                  ></button>
                 </div>
               </div>
 
