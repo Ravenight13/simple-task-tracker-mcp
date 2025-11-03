@@ -1880,7 +1880,10 @@
                         </span>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + detailPageRelatedTasks.parent.id"></td>
-                      <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100" x-text="detailPageRelatedTasks.parent.title"></td>
+                      <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900 dark:text-gray-100" x-text="detailPageRelatedTasks.parent.title"></div>
+                        <div x-show="detailPageRelatedTasks.parent.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2" x-text="detailPageRelatedTasks.parent.description"></div>
+                      </td>
                       <td class="px-6 py-4 whitespace-nowrap">
                         <span
                           class="px-2.5 py-0.5 rounded-full text-xs font-medium"
@@ -1927,11 +1930,12 @@
                         </span>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + child.id"></td>
-                      <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                        <div class="flex items-center gap-2">
+                      <td class="px-6 py-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100">
                           <span class="text-gray-400 dark:text-gray-500">└─</span>
                           <span x-text="child.title"></span>
                         </div>
+                        <div x-show="child.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-6 line-clamp-2" x-text="child.description"></div>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
                         <span
@@ -1979,7 +1983,10 @@
                         </span>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + dep.id"></td>
-                      <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100" x-text="dep.title"></td>
+                      <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900 dark:text-gray-100" x-text="dep.title"></div>
+                        <div x-show="dep.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2" x-text="dep.description"></div>
+                      </td>
                       <td class="px-6 py-4 whitespace-nowrap">
                         <span
                           class="px-2.5 py-0.5 rounded-full text-xs font-medium"
@@ -2026,7 +2033,10 @@
                         </span>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-medium" x-text="'#' + blocked.id"></td>
-                      <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100" x-text="blocked.title"></td>
+                      <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900 dark:text-gray-100" x-text="blocked.title"></div>
+                        <div x-show="blocked.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2" x-text="blocked.description"></div>
+                      </td>
                       <td class="px-6 py-4 whitespace-nowrap">
                         <span
                           class="px-2.5 py-0.5 rounded-full text-xs font-medium"
