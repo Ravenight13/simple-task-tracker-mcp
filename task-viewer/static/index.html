@@ -3116,9 +3116,10 @@ Created: ${this.formatDate(task.created_at)}`;
           };
 
           // Sort all arrays (parent is single object, doesn't need sorting)
-          this.detailPageRelatedTasks.children.sort(comparator);
-          this.detailPageRelatedTasks.dependencies.sort(comparator);
-          this.detailPageRelatedTasks.blocking.sort(comparator);
+          // Create new array references to trigger Alpine.js reactivity
+          this.detailPageRelatedTasks.children = [...this.detailPageRelatedTasks.children].sort(comparator);
+          this.detailPageRelatedTasks.dependencies = [...this.detailPageRelatedTasks.dependencies].sort(comparator);
+          this.detailPageRelatedTasks.blocking = [...this.detailPageRelatedTasks.blocking].sort(comparator);
         },
 
         saveApiKey() {
