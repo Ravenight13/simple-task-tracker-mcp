@@ -3070,6 +3070,13 @@ Created: ${this.formatDate(task.created_at)}`;
         },
 
         sortRelatedTasks(column) {
+          console.log('=== SORT DEBUG START ===');
+          console.log('Column:', column);
+          console.log('Current sort column:', this.relatedTasksSortColumn);
+          console.log('Current sort direction:', this.relatedTasksSortDirection);
+          console.log('Related tasks:', this.detailPageRelatedTasks);
+          console.log('=== SORT DEBUG END ===');
+
           // Toggle sort direction if same column, otherwise set to ascending
           if (this.relatedTasksSortColumn === column) {
             this.relatedTasksSortDirection = this.relatedTasksSortDirection === 'asc' ? 'desc' : 'asc';
