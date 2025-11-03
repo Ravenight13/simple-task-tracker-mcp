@@ -722,9 +722,11 @@
               </div>
 
               <!-- Parent Task Badge (if this is a subtask) -->
-              <div
+              <button
                 x-show="task?.parent_task_id"
-                class="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-xs font-medium border border-indigo-200 dark:border-indigo-700"
+                @click.stop="openTaskById(task.parent_task_id)"
+                class="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-xs font-medium border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 cursor-pointer transition-colors"
+                :title="`Click to view parent: ${getParentTask(task.parent_task_id)?.title || 'Task #' + task.parent_task_id}`"
               >
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -733,9 +735,8 @@
                 <span
                   x-text="getParentTask(task.parent_task_id)?.title || `Task #${task.parent_task_id}`"
                   class="font-semibold truncate max-w-[120px]"
-                  :title="getParentTask(task.parent_task_id)?.title"
                 ></span>
-              </div>
+              </button>
 
               <!-- Dependencies Badge -->
               <div
