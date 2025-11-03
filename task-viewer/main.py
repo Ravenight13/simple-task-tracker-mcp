@@ -627,6 +627,65 @@ async def get_task(
     return TaskResponse(**task_data)
 
 
+# Entity Endpoints
+@app.get("/api/entities/{entity_id}/tasks", response_model=TaskListResponse)
+async def get_entity_tasks(
+    entity_id: int,
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+):
+    """
+    Get all tasks linked to a specific entity (reverse lookup).
+
+    Args:
+        entity_id: Entity ID
+        project_id: Optional project hint for workspace resolution
+        status: Optional task status filter (todo, in_progress, done, etc.)
+        priority: Optional task priority filter (low, medium, high)
+
+    Returns:
+        Task list with link metadata (link_created_at, link_created_by)
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Build arguments for MCP call
+    args: dict[str, Any] = {
+        "entity_id": entity_id,
+        "workspace_path": resolved_workspace
+    }
+    if status:
+        args["status"] = status
+    if priority:
+        args["priority"] = priority
+
+    # Call task-mcp (will raise ValueError if entity not found)
+    tasks_data = await mcp_service.call_tool("get_entity_tasks", args)
+
+    # Build filter info
+    filters = {}
+    if status:
+        filters["status"] = status
+    if priority:
+        filters["priority"] = priority
+
+    return TaskListResponse(
+        tasks=[TaskResponse(**t) for t in tasks_data],
+        total=len(tasks_data),
+        limit=len(tasks_data),
+        offset=0,
+        filters=filters if filters else None,
+    )
+
+
 # Mount static files for frontend
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
