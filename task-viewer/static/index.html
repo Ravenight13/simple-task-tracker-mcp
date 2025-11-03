@@ -2075,33 +2075,6 @@
         },
 
 
-        // Entity Methods
-        async loadEntities() {
-          if (!this.currentProject) {
-            this.entities = [];
-            return;
-          }
-
-          try {
-            const params = new URLSearchParams({
-              project_id: this.currentProject.id,
-            });
-
-            const response = await fetch(`${API_CONFIG.baseUrl}/entities?${params}`, {
-              headers: { 'X-API-Key': this.apiKey }
-            });
-
-            if (!response.ok) {
-              throw new Error(`Failed to load entities: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            this.entities = data.entities || [];
-          } catch (err) {
-            console.error('Error loading entities:', err);
-            this.entities = [];
-          }
-        },
 
         openEntityModal(entity) {
           // Placeholder for entity detail modal (Task #117)
