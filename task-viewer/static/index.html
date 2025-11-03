@@ -2734,6 +2734,67 @@ Created: ${this.formatDate(task.created_at)}`;
           }, 300);
         },
 
+        openTask(task) {
+          this.selectedTask = task;
+          this.showModal = true;
+        },
+
+        openDetailPage(task) {
+          this.detailPageTask = task;
+          this.showDetailPage = true;
+
+          // Load related tasks
+          this.loadRelatedTasks(task);
+
+          // Hide main content
+          document.body.style.overflow = 'hidden';
+        },
+
+        closeDetailPage() {
+          this.showDetailPage = false;
+          this.detailPageTask = null;
+          this.detailPageRelatedTasks = {
+            parent: null,
+            children: [],
+            dependencies: [],
+            blocking: []
+          };
+          document.body.style.overflow = '';
+        },
+
+        loadRelatedTasks(task) {
+          const allTasks = this.tasks || [];
+
+          // Parent task
+          if (task.parent_task_id) {
+            this.detailPageRelatedTasks.parent = allTasks.find(t => t.id === task.parent_task_id);
+          }
+
+          // Child tasks (subtasks)
+          this.detailPageRelatedTasks.children = allTasks.filter(t => t.parent_task_id === task.id);
+
+          // Dependencies
+          if (task.depends_on) {
+            try {
+              const depIds = JSON.parse(task.depends_on);
+              this.detailPageRelatedTasks.dependencies = allTasks.filter(t => depIds.includes(t.id));
+            } catch (e) {
+              this.detailPageRelatedTasks.dependencies = [];
+            }
+          }
+
+          // Blocking tasks (tasks that depend on this task)
+          this.detailPageRelatedTasks.blocking = allTasks.filter(t => {
+            if (!t.depends_on) return false;
+            try {
+              const depIds = JSON.parse(t.depends_on);
+              return depIds.includes(task.id);
+            } catch (e) {
+              return false;
+            }
+          });
+        },
+
         saveApiKey() {
           if (this.apiKeyInput && this.apiKeyInput.trim()) {
             this.apiKey = this.apiKeyInput.trim();
