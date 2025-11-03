@@ -3115,11 +3115,17 @@ Created: ${this.formatDate(task.created_at)}`;
             return 0;
           };
 
-          // Sort all arrays (parent is single object, doesn't need sorting)
-          // Create new array references to trigger Alpine.js reactivity
-          this.detailPageRelatedTasks.children = [...this.detailPageRelatedTasks.children].sort(comparator);
-          this.detailPageRelatedTasks.dependencies = [...this.detailPageRelatedTasks.dependencies].sort(comparator);
-          this.detailPageRelatedTasks.blocking = [...this.detailPageRelatedTasks.blocking].sort(comparator);
+          // Sort arrays and force Alpine.js reactivity by reassigning the entire object
+          // This ensures Alpine's Proxy detects the change and re-renders the templates
+          const sorted = {
+            parent: this.detailPageRelatedTasks.parent,
+            children: [...this.detailPageRelatedTasks.children].sort(comparator),
+            dependencies: [...this.detailPageRelatedTasks.dependencies].sort(comparator),
+            blocking: [...this.detailPageRelatedTasks.blocking].sort(comparator)
+          };
+
+          // Reassign the entire object to trigger reactivity
+          this.detailPageRelatedTasks = sorted;
         },
 
         saveApiKey() {
