@@ -27,6 +27,9 @@ load_dotenv()
 
 from mcp_client import mcp_service
 from models import (
+    EntityListResponse,
+    EntityResponse,
+    EntitySearchResponse,
     ErrorResponse,
     HealthCheckResponse,
     ProjectInfoResponse,
@@ -684,6 +687,42 @@ async def get_entity_tasks(
         offset=0,
         filters=filters if filters else None,
     )
+
+
+@app.get("/api/entities/{entity_id}", response_model=EntityResponse)
+async def get_entity(
+    entity_id: int,
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+):
+    """
+    Get a single entity by ID.
+
+    Args:
+        entity_id: Entity ID
+        project_id: Optional project hint for workspace resolution
+
+    Returns:
+        Full entity object including metadata
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Call task-mcp
+    entity_data = await mcp_service.call_tool(
+        "get_entity", {"entity_id": entity_id, "workspace_path": resolved_workspace}
+    )
+
+    if not entity_data:
+        raise ValueError(f"Entity with ID {entity_id} not found or deleted")
+
+    return EntityResponse(**entity_data)
 
 
 # Mount static files for frontend
