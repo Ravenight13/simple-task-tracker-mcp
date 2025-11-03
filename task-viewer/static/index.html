@@ -882,7 +882,10 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">File Entities</p>
-                <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100" x-text="entityStats.file"></p>
+                <div class="flex items-baseline gap-2">
+                  <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100" x-text="entityStats.file"></p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400" x-text="'(' + calculatePercentage(entityStats.file, entityStats.total) + '%)'"></p>
+                </div>
               </div>
               <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
                 <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -905,6 +908,61 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Entity Search Bar -->
+        <div class="mb-6">
+          <div class="relative">
+            <input
+              type="text"
+              x-model="entitySearch"
+              @input.debounce.300ms="searchEntities()"
+              placeholder="Search entities by name or identifier..."
+              class="w-full pl-10 pr-20 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+              aria-label="Search entities"
+            />
+
+            <!-- Search icon (left) -->
+            <svg class="absolute left-3 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+
+            <!-- Clear button (right) -->
+            <button
+              x-show="entitySearch"
+              @click="clearEntitySearch()"
+              class="absolute right-12 top-2.5 p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
+              title="Clear search"
+              aria-label="Clear search"
+              x-cloak
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+
+            <!-- Loading spinner -->
+            <div
+              x-show="searchLoading"
+              class="absolute right-3 top-3.5"
+              x-cloak
+            >
+              <svg class="animate-spin h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Search result count -->
+          <p
+            x-show="entitySearch && !searchLoading"
+            class="text-sm text-gray-600 dark:text-gray-400 mt-2 ml-1"
+            x-cloak
+          >
+            Found <span x-text="searchResultCount" class="font-semibold"></span>
+            <span x-text="searchResultCount === 1 ? 'entity' : 'entities'"></span>
+          </p>
         </div>
 
         <!-- Placeholder for entity list -->
@@ -1252,6 +1310,26 @@
           file: 0,
           other: 0
         },
+        entitySearch: '',
+        searchLoading: false,
+        searchResultCount: 0,
+        entityModalOpen: false,
+        selectedEntity: null,
+        entityTasks: [],
+        entityFilters: {
+          type: '',      // '' | 'file' | 'other'
+          tags: [],      // array of selected tag strings
+          limit: 25,     // Changed from 50 to 25 for pagination
+          offset: 0
+        },
+        entityTags: [],  // available tags for entities
+        selectedEntityTag: null,  // currently selected entity tag filter
+        entitiesLoading: false,
+
+        // Entity Pagination State
+        entityCurrentPage: 1,
+        entityTotalEntities: 0,
+        entityTotalPages: 1,
 
         // Lifecycle
         async init() {
@@ -1411,6 +1489,55 @@
             console.error('Error loading entity stats:', err);
             this.entityStats = { total: 0, file: 0, other: 0 };
           }
+        },
+
+        async searchEntities() {
+          if (!this.currentProject) {
+            return;
+          }
+
+          // If search is empty, load all entities
+          if (!this.entitySearch || this.entitySearch.trim() === '') {
+            // TODO: Load all entities when list view is implemented
+            this.entities = [];
+            this.searchResultCount = 0;
+            return;
+          }
+
+          this.searchLoading = true;
+
+          try {
+            const params = new URLSearchParams({
+              project_id: this.currentProject.id,
+              q: this.entitySearch,
+              limit: '50'
+            });
+
+            const response = await fetch(`${API_CONFIG.baseUrl}/entities/search?${params}`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to search entities: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.entities = data.entities || [];
+            this.searchResultCount = data.total || 0;
+          } catch (err) {
+            console.error('Search failed:', err);
+            this.entities = [];
+            this.searchResultCount = 0;
+          } finally {
+            this.searchLoading = false;
+          }
+        },
+
+        clearEntitySearch() {
+          this.entitySearch = '';
+          this.searchResultCount = 0;
+          this.entities = [];
+          // TODO: Load all entities when list view is implemented
         },
 
         selectTag(tag) {
