@@ -27,12 +27,18 @@ load_dotenv()
 
 from mcp_client import mcp_service
 from models import (
+    EntityListResponse,
+    EntityResponse,
+    EntitySearchResponse,
+    EntityStatsResponse,
+    EntityTypeCount,
     ErrorResponse,
     HealthCheckResponse,
     ProjectInfoResponse,
     ProjectListResponse,
     ProjectResponse,
     ProjectStatsResponse,
+    TagCount,
     TaskListResponse,
     TaskResponse,
     TaskSearchResponse,
@@ -625,6 +631,284 @@ async def get_task(
         raise ValueError(f"Task with ID {task_id} not found or deleted")
 
     return TaskResponse(**task_data)
+
+
+# Entity Endpoints
+# IMPORTANT: Specific routes (search) must come BEFORE /{entity_id}
+# to avoid path matching issues
+
+@app.get("/api/entities", response_model=EntityListResponse)
+async def list_entities(
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+    entity_type: Optional[str] = None,
+    tags: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """
+    List entities with optional filtering.
+
+    Query Parameters:
+        - project_id: Filter by project hash ID
+        - entity_type: Filter by entity type ('file' or 'other')
+        - tags: Filter by tags (space-separated)
+        - limit: Max results per page (default: 50, max: 100)
+        - offset: Pagination offset (default: 0)
+
+    Returns:
+        Paginated entity list with total count and filter metadata
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Build arguments for MCP call
+    args: dict[str, Any] = {"workspace_path": resolved_workspace}
+    if entity_type:
+        args["entity_type"] = entity_type
+    if tags:
+        args["tags"] = tags
+
+    # Call task-mcp
+    entities_data = await mcp_service.call_tool("list_entities", args)
+
+    # Apply pagination
+    total = len(entities_data)
+    paginated_entities = entities_data[offset : offset + limit]
+
+    # Build filter info
+    filters = {}
+    if entity_type:
+        filters["entity_type"] = entity_type
+    if tags:
+        filters["tags"] = tags
+
+    return EntityListResponse(
+        entities=[EntityResponse(**e) for e in paginated_entities],
+        total=total,
+        limit=limit,
+        offset=offset,
+        filters=filters if filters else None,
+    )
+
+
+@app.get("/api/entities/search", response_model=EntitySearchResponse)
+async def search_entities(
+    q: str,
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+    entity_type: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=100),
+):
+    """
+    Search entities by name or identifier (full-text search).
+
+    Query Parameters:
+        - q: Search query (required)
+        - project_id: Filter by project
+        - entity_type: Filter by entity type ('file' or 'other')
+        - limit: Max results (default: 20, max: 100)
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    if not q:
+        raise ValueError("Search query 'q' is required")
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Build arguments for MCP call
+    args: dict[str, Any] = {
+        "search_term": q,
+        "workspace_path": resolved_workspace
+    }
+    if entity_type:
+        args["entity_type"] = entity_type
+
+    # Call task-mcp
+    entities_data = await mcp_service.call_tool("search_entities", args)
+
+    # Apply limit
+    limited_entities = entities_data[:limit]
+
+    return EntitySearchResponse(
+        entities=[EntityResponse(**e) for e in limited_entities],
+        total=len(entities_data),
+        query=q,
+        limit=limit,
+    )
+
+
+# Entity Detail Endpoints
+# IMPORTANT: Specific routes (stats, search) must come BEFORE /{entity_id}
+# to avoid path matching issues where "stats" would be parsed as entity_id
+
+@app.get("/api/entities/stats", response_model=EntityStatsResponse)
+async def get_entity_stats(
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+):
+    """
+    Get entity statistics including counts by type and top tags.
+
+    Query Parameters:
+        - project_id: Filter by project hash ID
+
+    Returns:
+        Entity statistics with:
+        - total: Total entity count
+        - by_type: Counts by entity type (file, other)
+        - top_tags: Top 10 tags by frequency
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Call task-mcp to get all entities (no filters)
+    entities_data = await mcp_service.call_tool(
+        "list_entities", {"workspace_path": resolved_workspace}
+    )
+
+    # Calculate total count
+    total = len(entities_data)
+
+    # Calculate counts by type
+    file_count = sum(1 for e in entities_data if e.get("entity_type") == "file")
+    other_count = sum(1 for e in entities_data if e.get("entity_type") == "other")
+
+    # Extract and count tags
+    tag_counts: dict[str, int] = {}
+    for entity in entities_data:
+        tags_str = entity.get("tags")
+        if tags_str:
+            # Tags are space-separated
+            tags = tags_str.strip().split()
+            for tag in tags:
+                tag = tag.strip()
+                if tag:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    # Convert to list of TagCount objects sorted by count (descending), take top 10
+    top_tags_list = [
+        TagCount(tag=tag, count=count) for tag, count in tag_counts.items()
+    ]
+    top_tags_list.sort(key=lambda x: (-x.count, x.tag))  # Sort by count desc, then name asc
+    top_tags = top_tags_list[:10]  # Take top 10
+
+    return EntityStatsResponse(
+        total=total,
+        by_type=EntityTypeCount(file=file_count, other=other_count),
+        top_tags=top_tags,
+    )
+
+
+@app.get("/api/entities/{entity_id}/tasks", response_model=TaskListResponse)
+async def get_entity_tasks(
+    entity_id: int,
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+):
+    """
+    Get all tasks linked to a specific entity (reverse lookup).
+
+    Args:
+        entity_id: Entity ID
+        project_id: Optional project hint for workspace resolution
+        status: Optional task status filter (todo, in_progress, done, etc.)
+        priority: Optional task priority filter (low, medium, high)
+
+    Returns:
+        Task list with link metadata (link_created_at, link_created_by)
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Build arguments for MCP call
+    args: dict[str, Any] = {
+        "entity_id": entity_id,
+        "workspace_path": resolved_workspace
+    }
+    if status:
+        args["status"] = status
+    if priority:
+        args["priority"] = priority
+
+    # Call task-mcp (will raise ValueError if entity not found)
+    tasks_data = await mcp_service.call_tool("get_entity_tasks", args)
+
+    # Build filter info
+    filters = {}
+    if status:
+        filters["status"] = status
+    if priority:
+        filters["priority"] = priority
+
+    return TaskListResponse(
+        tasks=[TaskResponse(**t) for t in tasks_data],
+        total=len(tasks_data),
+        limit=len(tasks_data),
+        offset=0,
+        filters=filters if filters else None,
+    )
+
+
+@app.get("/api/entities/{entity_id}", response_model=EntityResponse)
+async def get_entity(
+    entity_id: int,
+    x_api_key: str = Header(None),
+    project_id: Optional[str] = None,
+    workspace_path: Optional[str] = None,
+):
+    """
+    Get a single entity by ID.
+
+    Args:
+        entity_id: Entity ID
+        project_id: Optional project hint for workspace resolution
+
+    Returns:
+        Full entity object including metadata
+
+    Requires API key authentication.
+    """
+    # Verify API key
+    await verify_api_key(x_api_key)
+
+    # Resolve workspace path
+    resolved_workspace = workspace_resolver.resolve(project_id, workspace_path)
+
+    # Call task-mcp
+    entity_data = await mcp_service.call_tool(
+        "get_entity", {"entity_id": entity_id, "workspace_path": resolved_workspace}
+    )
+
+    if not entity_data:
+        raise ValueError(f"Entity with ID {entity_id} not found or deleted")
+
+    return EntityResponse(**entity_data)
 
 
 # Mount static files for frontend

@@ -202,8 +202,75 @@
       </div>
     </header>
 
-    <!-- Filters Bar -->
-    <div class="sticky top-16 z-30 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <!-- Tab Navigation -->
+    <div class="sticky top-16 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav class="flex space-x-8" aria-label="Main tabs">
+          <!-- Tasks Tab -->
+          <button
+            @click="switchTab('tasks')"
+            class="relative py-4 px-1 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            :class="{
+              'text-blue-600 dark:text-blue-400': activeTab === 'tasks',
+              'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300': activeTab !== 'tasks'
+            }"
+            :aria-current="activeTab === 'tasks' ? 'page' : undefined"
+          >
+            <span class="flex items-center gap-2">
+              Tasks
+              <span
+                x-show="statusCounts.total > 0"
+                x-text="statusCounts.total"
+                class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold rounded-full transition-colors"
+                :class="{
+                  'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300': activeTab === 'tasks',
+                  'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300': activeTab !== 'tasks'
+                }"
+              ></span>
+            </span>
+            <!-- Active indicator -->
+            <span
+              x-show="activeTab === 'tasks'"
+              class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              aria-hidden="true"
+            ></span>
+          </button>
+
+          <!-- Entities Tab -->
+          <button
+            @click="switchTab('entities')"
+            class="relative py-4 px-1 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            :class="{
+              'text-blue-600 dark:text-blue-400': activeTab === 'entities',
+              'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300': activeTab !== 'entities'
+            }"
+            :aria-current="activeTab === 'entities' ? 'page' : undefined"
+          >
+            <span class="flex items-center gap-2">
+              Entities
+              <span
+                x-show="entityStats.total > 0"
+                x-text="entityStats.total"
+                class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold rounded-full transition-colors"
+                :class="{
+                  'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300': activeTab === 'entities',
+                  'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300': activeTab !== 'entities'
+                }"
+              ></span>
+            </span>
+            <!-- Active indicator -->
+            <span
+              x-show="activeTab === 'entities'"
+              class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              aria-hidden="true"
+            ></span>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Filters Bar (Tasks Only) -->
+    <div x-show="activeTab === 'tasks'" class="sticky top-[120px] z-20 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <!-- Tag Filter -->
         <div class="flex flex-wrap items-center gap-2 mb-3" x-data="{ open: false }">
@@ -402,9 +469,9 @@
 
           <template x-for="status in ['all', 'todo', 'in_progress', 'done', 'blocked', 'to_be_deleted']" :key="status">
             <button
-              @click="statusFilter = status; activeSmartFilter = null; applyFilters()"
+              @click="statusFilter = status; if (activeSmartFilter && activeSmartFilter !== 'parent-tasks') activeSmartFilter = null; applyFilters()"
               class="px-3 py-1 rounded-full text-sm font-medium transition-colors"
-              :class="statusFilter === status && !activeSmartFilter
+              :class="statusFilter === status && (activeSmartFilter === 'parent-tasks' || !activeSmartFilter)
                 ? 'bg-blue-600 text-white'
                 : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'"
               :aria-pressed="statusFilter === status"
@@ -520,17 +587,19 @@
 
     <!-- Main Content -->
     <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <!-- Live region for screen reader announcements -->
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        class="sr-only"
-      >
-        <span x-text="`Showing ${(filteredTasks || []).length} of ${(tasks || []).length} tasks`"></span>
-      </div>
+      <!-- Tasks View -->
+      <div x-show="activeTab === 'tasks'">
+        <!-- Live region for screen reader announcements -->
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          class="sr-only"
+        >
+          <span x-text="`Showing ${(filteredTasks || []).length} of ${(tasks || []).length} tasks`"></span>
+        </div>
 
-      <!-- Loading State -->
+        <!-- Loading State -->
       <div x-show="loading" class="space-y-4">
         <div class="flex justify-center items-center py-12">
           <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -567,10 +636,10 @@
         </svg>
         <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No tasks found</h3>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          <template x-if="searchQuery || statusFilter !== 'all' || priorityFilter !== 'all'">
+          <template x-if="searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || activeSmartFilter">
             <span>Try adjusting your filters</span>
           </template>
-          <template x-if="!searchQuery && statusFilter === 'all' && priorityFilter === 'all'">
+          <template x-if="!searchQuery && statusFilter === 'all' && priorityFilter === 'all' && !activeSmartFilter">
             <span>This project has no tasks yet</span>
           </template>
         </p>
@@ -781,6 +850,428 @@
           </div>
         </template>
       </div>
+      </div>
+      <!-- End Tasks View -->
+
+      <!-- Entities View -->
+      <div x-show="activeTab === 'entities'">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Entities</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Manage files, vendors, and other entities linked to your tasks
+          </p>
+        </div>
+
+        <!-- Entity Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Entities</p>
+                <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100" x-text="entityStats.total"></p>
+              </div>
+              <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">File Entities</p>
+                <div class="flex items-baseline gap-2">
+                  <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100" x-text="entityStats.file"></p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400" x-text="'(' + calculatePercentage(entityStats.file, entityStats.total) + '%)'"></p>
+                </div>
+              </div>
+              <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
+                <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Other Entities</p>
+                <div class="flex items-baseline gap-2">
+                  <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100" x-text="entityStats.other"></p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400" x-text="'(' + calculatePercentage(entityStats.other, entityStats.total) + '%)'"></p>
+                </div>
+              </div>
+              <div class="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Tags Section -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700 mb-6">
+          <h4 class="text-sm font-semibold mb-4 text-gray-700 dark:text-gray-300">Top Tags</h4>
+          <template x-if="entityStats.top_tags && entityStats.top_tags.length > 0">
+            <div class="space-y-2">
+              <template x-for="tag in entityStats.top_tags.slice(0, 5)" :key="tag.tag">
+                <div class="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                  <span class="text-gray-600 dark:text-gray-400 font-medium" x-text="tag.tag"></span>
+                  <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-xs font-semibold" x-text="tag.count"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+          <template x-if="!entityStats.top_tags || entityStats.top_tags.length === 0">
+            <p class="text-sm text-gray-500 dark:text-gray-400 italic">No tags found</p>
+          </template>
+        </div>
+
+        <!-- Entity Search Bar -->
+        <div class="mb-6">
+          <div class="relative">
+            <input
+              type="text"
+              x-model="entitySearch"
+              @input.debounce.300ms="searchEntities()"
+              placeholder="Search entities by name or identifier..."
+              class="w-full pl-10 pr-20 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+              aria-label="Search entities"
+            />
+
+            <!-- Search icon (left) -->
+            <svg class="absolute left-3 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+
+            <!-- Clear button (right) -->
+            <button
+              x-show="entitySearch"
+              @click="clearEntitySearch()"
+              class="absolute right-12 top-2.5 p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
+              title="Clear search"
+              aria-label="Clear search"
+              x-cloak
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+
+            <!-- Loading spinner -->
+            <div
+              x-show="searchLoading"
+              class="absolute right-3 top-3.5"
+              x-cloak
+            >
+              <svg class="animate-spin h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Search result count -->
+          <p
+            x-show="entitySearch && !searchLoading"
+            class="text-sm text-gray-600 dark:text-gray-400 mt-2 ml-1"
+            x-cloak
+          >
+            Found <span x-text="searchResultCount" class="font-semibold"></span>
+            <span x-text="searchResultCount === 1 ? 'entity' : 'entities'"></span>
+          </p>
+        </div>
+
+        <!-- Entity Filters Bar -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700 mb-6">
+          <div class="flex flex-wrap items-center gap-4">
+            <!-- Entity Type Filter -->
+            <div class="flex-shrink-0">
+              <label for="entity-type-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+              <select
+                id="entity-type-filter"
+                x-model="entityFilters.type"
+                @change="selectEntityType(entityFilters.type)"
+                class="block w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors"
+              >
+                <option value="">All Types</option>
+                <option value="file">Files</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <!-- Tag Filter -->
+            <div class="flex-shrink-0" x-data="{ open: false }">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tag</label>
+              <div class="relative">
+                <button
+                  @click="open = !open"
+                  class="w-48 px-4 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors flex items-center justify-between"
+                  :class="{ 'ring-2 ring-blue-500': selectedEntityTag }"
+                  :aria-expanded="open"
+                  aria-haspopup="listbox"
+                >
+                  <template x-if="selectedEntityTag">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      <span x-text="selectedEntityTag"></span>
+                    </span>
+                  </template>
+                  <template x-if="!selectedEntityTag">
+                    <span class="text-gray-700 dark:text-gray-300">All Tags</span>
+                  </template>
+                  <svg class="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+
+                <div
+                  x-show="open"
+                  @click.away="open = false"
+                  x-transition:enter="transition ease-out duration-100"
+                  x-transition:enter-start="opacity-0 scale-95"
+                  x-transition:enter-end="opacity-100 scale-100"
+                  x-transition:leave="transition ease-in duration-75"
+                  x-transition:leave-start="opacity-100 scale-100"
+                  x-transition:leave-end="opacity-0 scale-95"
+                  class="absolute z-10 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-80 overflow-auto"
+                  role="listbox"
+                  x-cloak
+                >
+                  <!-- "All Tags" option -->
+                  <button
+                    @click="selectEntityTag(null); open = false"
+                    class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors"
+                    :class="{ 'bg-blue-50 dark:bg-blue-900': !selectedEntityTag }"
+                    role="option"
+                    :aria-selected="!selectedEntityTag"
+                  >
+                    <div class="font-medium">All Tags</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Show all entities</div>
+                  </button>
+
+                  <!-- Divider -->
+                  <div class="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+
+                  <!-- Tag list -->
+                  <template x-if="entityTags.length > 0">
+                    <div>
+                      <template x-for="tagItem in entityTags" :key="tagItem.tag">
+                        <button
+                          @click="selectEntityTag(tagItem.tag); open = false"
+                          class="block w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                          :class="{ 'bg-blue-50 dark:bg-blue-900': selectedEntityTag === tagItem.tag }"
+                          role="option"
+                          :aria-selected="selectedEntityTag === tagItem.tag"
+                        >
+                          <div class="flex items-center justify-between gap-2">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                              <span x-text="tagItem.tag"></span>
+                            </span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                              <span x-text="tagItem.count"></span> <span x-show="tagItem.count === 1">entity</span><span x-show="tagItem.count !== 1">entities</span>
+                            </span>
+                          </div>
+                        </button>
+                      </template>
+                    </div>
+                  </template>
+
+                  <!-- Empty state -->
+                  <template x-if="entityTags.length === 0">
+                    <div class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                      <svg class="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      <div>No tags available</div>
+                      <div class="text-xs mt-1">Entities with tags will appear here</div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- Active Filters Chips -->
+            <div class="flex flex-wrap items-center gap-2 ml-auto">
+              <template x-if="entityFilters.type || selectedEntityTag">
+                <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Filters:</span>
+              </template>
+
+              <template x-if="entityFilters.type">
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  Type: <span x-text="entityFilters.type === 'file' ? 'Files' : 'Other'"></span>
+                  <button
+                    @click="selectEntityType('')"
+                    class="ml-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5 transition-colors"
+                    aria-label="Clear type filter"
+                  >
+                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                </span>
+              </template>
+
+              <template x-if="selectedEntityTag">
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  Tag: <span x-text="selectedEntityTag"></span>
+                  <button
+                    @click="selectEntityTag(null)"
+                    class="ml-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5 transition-colors"
+                    aria-label="Clear tag filter"
+                  >
+                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                </span>
+              </template>
+
+              <!-- Clear All Filters Button -->
+              <button
+                x-show="entityFilters.type || selectedEntityTag"
+                @click="clearEntityFilters()"
+                class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center gap-1"
+                title="Clear all filters"
+                x-cloak
+              >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span>Clear All</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entity Cards Grid -->
+        <div id="entities-container" x-show="entities.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <template x-for="entity in entities" :key="entity.id">
+            <div
+              @click="openEntityModal(entity)"
+              class="entity-card bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer p-4 border border-gray-200 dark:border-gray-700"
+            >
+              <!-- Type badge -->
+              <div class="mb-2" x-html="getEntityTypeBadge(entity.entity_type)"></div>
+
+              <!-- Name -->
+              <h3
+                class="font-semibold text-lg text-gray-900 dark:text-white truncate mb-1"
+                :title="entity.name"
+                x-text="entity.name"
+              ></h3>
+
+              <!-- Identifier -->
+              <p
+                x-show="entity.identifier"
+                class="text-sm text-gray-600 dark:text-gray-400 truncate mb-2"
+                :title="entity.identifier"
+                x-text="entity.identifier"
+              ></p>
+
+              <!-- Tags -->
+              <div x-show="entity.tags" class="flex flex-wrap gap-1 mt-2 mb-3">
+                <template x-for="tag in (entity.tags || '').split(' ').filter(t => t)" :key="tag">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                    <span x-text="tag"></span>
+                  </span>
+                </template>
+              </div>
+
+              <!-- Linked tasks count -->
+              <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                </svg>
+                <span x-text="entity.linked_tasks_count || 0"></span>
+                <span x-text="(entity.linked_tasks_count || 0) === 1 ? 'linked task' : 'linked tasks'"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Entity Pagination Controls -->
+        <div
+          x-show="entities.length > 0 && entityTotalPages > 1"
+          id="entity-pagination"
+          class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+        >
+          <!-- Results summary -->
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            Showing
+            <span class="font-semibold" x-text="entityPaginationStart"></span>-<span class="font-semibold" x-text="entityPaginationEnd"></span>
+            of
+            <span class="font-semibold" x-text="entityTotalEntities"></span>
+            entities
+          </p>
+
+          <!-- Page navigation -->
+          <div class="flex items-center gap-2">
+            <button
+              @click="entityPreviousPage()"
+              :disabled="entityCurrentPage === 1"
+              :class="entityCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'"
+              class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors"
+              aria-label="Previous page"
+            >
+              Previous
+            </button>
+
+            <!-- Page numbers (show max 5) -->
+            <template x-for="page in entityVisiblePages" :key="page">
+              <button
+                @click="entityGoToPage(page)"
+                :class="entityCurrentPage === page ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600'"
+                class="px-3 py-1 border rounded text-sm font-medium transition-colors"
+                :aria-label="'Go to page ' + page"
+                :aria-current="entityCurrentPage === page ? 'page' : undefined"
+                x-text="page"
+              >
+              </button>
+            </template>
+
+            <button
+              @click="entityNextPage()"
+              :disabled="entityCurrentPage >= entityTotalPages"
+              :class="entityCurrentPage >= entityTotalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'"
+              class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors"
+              aria-label="Next page"
+            >
+              Next
+            </button>
+          </div>
+
+          <!-- Page size selector -->
+          <div class="flex items-center gap-2">
+            <label for="entity-page-size" class="text-sm text-gray-600 dark:text-gray-400">Per page:</label>
+            <select
+              id="entity-page-size"
+              x-model.number="entityFilters.limit"
+              @change="changeEntityPageSize()"
+              class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div x-show="entities.length === 0" class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 border border-gray-200 dark:border-gray-700 text-center">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+          </svg>
+          <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">No Entities Yet</h3>
+          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Create entities using the MCP tools to track files, vendors, and other resources
+          </p>
+        </div>
+      </div>
+      <!-- End Entities View -->
     </main>
 
     <!-- Task Detail Modal -->
@@ -991,6 +1482,188 @@
       </div>
     </div>
 
+
+    <!-- Entity Detail Modal -->
+    <div
+      x-show="entityModalOpen"
+      x-cloak
+      x-transition:enter="transition ease-out duration-300"
+      x-transition:enter-start="opacity-0"
+      x-transition:enter-end="opacity-100"
+      x-transition:leave="transition ease-in duration-200"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"
+      class="fixed inset-0 z-50 overflow-y-auto"
+      @keydown.escape="closeEntityModal()"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="entity-modal-title"
+    >
+      <!-- Backdrop -->
+      <div
+        @click="closeEntityModal()"
+        class="fixed inset-0 bg-black bg-opacity-50"
+      ></div>
+
+      <!-- Modal content -->
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div
+          x-show="entityModalOpen"
+          x-transition:enter="transition ease-out duration-300"
+          x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+          x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+          x-transition:leave="transition ease-in duration-200"
+          x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+          x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+          class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full p-6"
+          @click.stop
+          x-trap.noscroll="entityModalOpen"
+        >
+          <!-- Modal content (if entity selected) -->
+          <template x-if="selectedEntity">
+            <div>
+              <!-- Header with close button -->
+              <div class="flex justify-between items-start mb-4">
+                <div>
+                  <h2 id="entity-modal-title" class="text-2xl font-bold text-gray-900 dark:text-gray-100" x-text="selectedEntity.name"></h2>
+                  <div class="mt-1" x-html="getEntityTypeBadge(selectedEntity.entity_type)"></div>
+                </div>
+                <button
+                  @click="closeEntityModal()"
+                  class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  aria-label="Close modal"
+                >
+                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Entity details grid -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- Identifier -->
+                <div>
+                  <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Identifier</h3>
+                  <p class="text-sm text-gray-900 dark:text-gray-100" x-text="selectedEntity.identifier || 'N/A'"></p>
+                </div>
+
+                <!-- Tags -->
+                <div>
+                  <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Tags</h3>
+                  <template x-if="selectedEntity.tags">
+                    <div class="flex flex-wrap gap-1">
+                      <template x-for="tag in selectedEntity.tags.split(' ')" :key="tag">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200" x-text="tag"></span>
+                      </template>
+                    </div>
+                  </template>
+                  <template x-if="!selectedEntity.tags">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 italic">No tags</p>
+                  </template>
+                </div>
+
+                <!-- Description (full width) -->
+                <div class="md:col-span-2">
+                  <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Description</h3>
+                  <p class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap" x-text="selectedEntity.description || 'No description'"></p>
+                </div>
+              </div>
+
+              <!-- Metadata viewer -->
+              <div class="mb-6">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Metadata</h3>
+                  <button
+                    @click="copyMetadata(selectedEntity.metadata)"
+                    :disabled="!selectedEntity.metadata"
+                    class="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    title="Copy metadata to clipboard"
+                  >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy
+                  </button>
+                </div>
+
+                <template x-if="selectedEntity.metadata">
+                  <pre class="text-xs font-mono text-gray-800 dark:text-gray-200 overflow-x-auto whitespace-pre-wrap bg-gray-50 dark:bg-gray-900 rounded p-3 border border-gray-200 dark:border-gray-700"><code x-text="formatJSON(selectedEntity.metadata)"></code></pre>
+                </template>
+
+                <template x-if="!selectedEntity.metadata">
+                  <p class="text-sm text-gray-500 dark:text-gray-400 italic">No metadata available</p>
+                </template>
+              </div>
+
+              <!-- Linked tasks section -->
+              <div class="mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                  Linked Tasks (<span x-text="entityTasks.length"></span>)
+                </h3>
+
+                <!-- Task list -->
+                <template x-if="entityTasks.length > 0">
+                  <div class="space-y-2">
+                    <template x-for="task in entityTasks" :key="task.id">
+                      <div
+                        @click="closeEntityModal(); openTaskDetail(task)"
+                        class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer border border-gray-200 dark:border-gray-600"
+                        role="button"
+                        tabindex="0"
+                        @keydown.enter="closeEntityModal(); openTaskDetail(task)"
+                        @keydown.space.prevent="closeEntityModal(); openTaskDetail(task)"
+                      >
+                        <div class="flex items-start justify-between gap-2">
+                          <div class="flex-1 min-w-0">
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" x-text="task.title"></h4>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" x-text="task.description || 'No description'"></p>
+                          </div>
+                          <div class="flex flex-col gap-1 flex-shrink-0">
+                            <!-- Status badge -->
+                            <span
+                              class="px-2 py-0.5 rounded text-xs font-medium text-center"
+                              :class="{
+                                'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200': task.status === 'todo',
+                                'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': task.status === 'in_progress',
+                                'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': task.status === 'done',
+                                'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task.status === 'blocked',
+                                'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200': task.status === 'to_be_deleted'
+                              }"
+                              x-text="task?.status ? task.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'"
+                            ></span>
+
+                            <!-- Priority badge -->
+                            <span
+                              class="px-2 py-0.5 rounded text-xs font-medium text-center"
+                              :class="{
+                                'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300': task.priority === 'low',
+                                'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': task.priority === 'medium',
+                                'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': task.priority === 'high'
+                              }"
+                              x-text="task?.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'N/A'"
+                            ></span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Empty state -->
+                <template x-if="entityTasks.length === 0">
+                  <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No linked tasks</p>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
     <!-- Toast Notification -->
     <div
       x-show="toast.show"
@@ -1100,16 +1773,50 @@
         error: null,
         showModal: false,
         refreshing: false,
+        activeTab: 'tasks',  // 'tasks' | 'entities'
         toast: {
           show: false,
           type: 'success',
           message: ''
         },
 
+        // Entities State
+        entities: [],
+        entityStats: {
+          total: 0,
+          file: 0,
+          other: 0,
+          top_tags: []
+        },
+        entitySearch: '',
+        searchLoading: false,
+        searchResultCount: 0,
+        entityModalOpen: false,
+        selectedEntity: null,
+        entityTasks: [],
+        entityFilters: {
+          type: '',      // '' | 'file' | 'other'
+          tags: [],      // array of selected tag strings
+          limit: 25,     // Changed from 50 to 25 for pagination
+          offset: 0
+        },
+        entityTags: [],  // available tags for entities
+        selectedEntityTag: null,  // currently selected entity tag filter
+        entitiesLoading: false,
+
+        // Entity Pagination State
+        entityCurrentPage: 1,
+        entityTotalEntities: 0,
+        entityTotalPages: 1,
+
         // Lifecycle
         async init() {
           // Set up global handler for nested subtask clicks
           window.__taskViewerOpenTask = (task) => this.openTaskDetail(task);
+
+          // Handle URL hash for tab routing
+          this.handleHashChange();
+          window.addEventListener('hashchange', () => this.handleHashChange());
 
           // Check for API key
           if (!this.apiKey) {
@@ -1122,7 +1829,25 @@
             this.currentProject = this.projects[0];
             await this.loadTasks();
             await this.loadTags();
+            await this.loadEntityStats();
+            await this.loadEntities();
           }
+        },
+
+        // Hash routing handler
+        handleHashChange() {
+          const hash = window.location.hash.slice(1); // Remove '#'
+          if (hash === 'entities') {
+            this.activeTab = 'entities';
+          } else {
+            this.activeTab = 'tasks';
+          }
+        },
+
+        // Switch tab and update URL hash
+        switchTab(tab) {
+          this.activeTab = tab;
+          window.location.hash = tab === 'entities' ? '#entities' : '';
         },
 
         // API Methods
@@ -1216,6 +1941,82 @@
             console.error('Error loading tags:', err);
             this.tags = [];
           }
+        },
+
+        async loadEntityStats() {
+          if (!this.currentProject) {
+            this.entityStats = { total: 0, file: 0, other: 0, top_tags: [] };
+            return;
+          }
+
+          try {
+            const params = new URLSearchParams({
+              project_id: this.currentProject.id,
+            });
+
+            const response = await fetch(`${API_CONFIG.baseUrl}/entities/stats?${params}`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to load entity stats: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.entityStats = data.stats || { total: 0, file: 0, other: 0, top_tags: [] };
+          } catch (err) {
+            console.error('Error loading entity stats:', err);
+            this.entityStats = { total: 0, file: 0, other: 0, top_tags: [] };
+          }
+        },
+
+        async searchEntities() {
+          if (!this.currentProject) {
+            return;
+          }
+
+          // If search is empty, load all entities
+          if (!this.entitySearch || this.entitySearch.trim() === '') {
+            // TODO: Load all entities when list view is implemented
+            this.entities = [];
+            this.searchResultCount = 0;
+            return;
+          }
+
+          this.searchLoading = true;
+
+          try {
+            const params = new URLSearchParams({
+              project_id: this.currentProject.id,
+              q: this.entitySearch,
+              limit: '50'
+            });
+
+            const response = await fetch(`${API_CONFIG.baseUrl}/entities/search?${params}`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to search entities: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.entities = data.entities || [];
+            this.searchResultCount = data.total || 0;
+          } catch (err) {
+            console.error('Search failed:', err);
+            this.entities = [];
+            this.searchResultCount = 0;
+          } finally {
+            this.searchLoading = false;
+          }
+        },
+
+        clearEntitySearch() {
+          this.entitySearch = '';
+          this.searchResultCount = 0;
+          this.entities = [];
+          // TODO: Load all entities when list view is implemented
         },
 
         selectTag(tag) {
@@ -1328,6 +2129,182 @@
           }, 3000);
         },
 
+        // Entity Methods
+        async loadEntities() {
+          if (!this.currentProject) {
+            this.entities = [];
+            return;
+          }
+
+          this.entitiesLoading = true;
+
+          try {
+            const params = new URLSearchParams({
+              project_id: this.currentProject.id,
+              limit: this.entityFilters.limit.toString(),
+              offset: this.entityFilters.offset.toString()
+            });
+
+            // Add type filter if set
+            if (this.entityFilters.type) {
+              params.append('entity_type', this.entityFilters.type);
+            }
+
+            // Add tag filter if set
+            if (this.selectedEntityTag) {
+              params.append('tags', this.selectedEntityTag);
+            }
+
+            const response = await fetch(`${API_CONFIG.baseUrl}/entities?${params}`, {
+              headers: { 'X-API-Key': this.apiKey }
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to load entities: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.entities = data.entities || [];
+            this.entityTotalEntities = data.total || 0;
+            this.entityTotalPages = Math.ceil(this.entityTotalEntities / this.entityFilters.limit);
+          } catch (err) {
+            console.error('Error loading entities:', err);
+            this.entities = [];
+            this.entityTotalEntities = 0;
+            this.entityTotalPages = 1;
+          } finally {
+            this.entitiesLoading = false;
+          }
+        },
+
+        selectEntityType(type) {
+          this.entityFilters.type = type;
+          this.entityFilters.offset = 0;
+          this.entityCurrentPage = 1;
+          this.loadEntities();
+        },
+
+        selectEntityTag(tag) {
+          this.selectedEntityTag = tag;
+          this.entityFilters.offset = 0;
+          this.entityCurrentPage = 1;
+          this.loadEntities();
+        },
+
+        clearEntityFilters() {
+          this.entityFilters.type = '';
+          this.selectedEntityTag = null;
+          this.entityFilters.offset = 0;
+          this.entityCurrentPage = 1;
+          this.loadEntities();
+        },
+
+        // Entity pagination computed properties
+        get entityPaginationStart() {
+          return this.entityTotalEntities === 0 ? 0 : (this.entityCurrentPage - 1) * this.entityFilters.limit + 1;
+        },
+
+        get entityPaginationEnd() {
+          return Math.min(this.entityCurrentPage * this.entityFilters.limit, this.entityTotalEntities);
+        },
+
+        get entityVisiblePages() {
+          const pages = [];
+          const total = this.entityTotalPages;
+          const current = this.entityCurrentPage;
+
+          // Show max 5 pages centered around current
+          let start = Math.max(1, current - 2);
+          let end = Math.min(total, start + 4);
+
+          if (end - start < 4) {
+            start = Math.max(1, end - 4);
+          }
+
+          for (let i = start; i <= end; i++) {
+            pages.push(i);
+          }
+
+          return pages;
+        },
+
+        // Entity pagination navigation methods
+        entityPreviousPage() {
+          if (this.entityCurrentPage > 1) {
+            this.entityCurrentPage--;
+            this.loadEntitiesPage();
+          }
+        },
+
+        entityNextPage() {
+          if (this.entityCurrentPage < this.entityTotalPages) {
+            this.entityCurrentPage++;
+            this.loadEntitiesPage();
+          }
+        },
+
+        entityGoToPage(page) {
+          this.entityCurrentPage = page;
+          this.loadEntitiesPage();
+        },
+
+        changeEntityPageSize() {
+          this.entityCurrentPage = 1;
+          this.loadEntitiesPage();
+        },
+
+        loadEntitiesPage() {
+          this.entityFilters.offset = (this.entityCurrentPage - 1) * this.entityFilters.limit;
+          this.loadEntities();
+
+          // Scroll to top of entity list
+          const container = document.getElementById('entities-container');
+          if (container) {
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        },
+
+        openEntityModal(entity) {
+          this.selectedEntity = entity;
+          this.entityModalOpen = true;
+          this.loadEntityTasks(entity.id);
+        },
+
+        closeEntityModal() {
+          this.entityModalOpen = false;
+          setTimeout(() => {
+            this.selectedEntity = null;
+            this.entityTasks = [];
+          }, 300);
+        },
+
+        async loadEntityTasks(entityId) {
+          try {
+            const params = new URLSearchParams({
+              workspace_path: this.currentProject.workspace_path
+            });
+
+            const response = await fetch(
+              `${API_CONFIG.getBaseUrl()}/api/entities/${entityId}/tasks?${params.toString()}`,
+              {
+                headers: {
+                  'X-API-Key': API_CONFIG.getApiKey()
+                }
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            this.entityTasks = data.tasks || [];
+          } catch (err) {
+            console.error('Error loading entity tasks:', err);
+            this.showToast('error', 'Failed to load entity tasks');
+            this.entityTasks = [];
+          }
+        },
         // Smart Filter Methods
         applySmartFilter(filterName) {
           // Clear active smart filter when manually changing filters
@@ -1587,6 +2564,64 @@ Created: ${this.formatDate(task.created_at)}`;
           return this.formatDate(dateString);
         },
 
+        calculatePercentage(count, total) {
+          if (!total || total === 0) return 0;
+          return Math.round((count / total) * 100);
+        },
+
+        // Metadata Helper Methods
+        formatJSON(jsonString) {
+          if (!jsonString) return '';
+          try {
+            const obj = JSON.parse(jsonString);
+            return JSON.stringify(obj, null, 2);
+          } catch (e) {
+            return jsonString; // Return as-is if not valid JSON
+          }
+        },
+
+        async copyMetadata(metadata) {
+          if (!metadata) return;
+          try {
+            await navigator.clipboard.writeText(this.formatJSON(metadata));
+            this.showToast('success', 'Metadata copied to clipboard');
+          } catch (err) {
+            console.error('Failed to copy metadata:', err);
+            this.showToast('error', 'Failed to copy metadata');
+          }
+        },
+
+        // Badge Helper Methods for Entity-Task Linking (Task #123)
+        getStatusBadgeClasses(status) {
+          const classMap = {
+            'todo': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
+            'in_progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+            'done': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+            'blocked': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+            'to_be_deleted': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+          };
+          return classMap[status] || classMap['todo'];
+        },
+
+        getPriorityBadgeClasses(priority) {
+          const classMap = {
+            'low': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+            'medium': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+            'high': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+          };
+          return classMap[priority] || classMap['medium'];
+        },
+
+        formatStatus(status) {
+          if (!status) return 'N/A';
+          return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        },
+
+        formatPriority(priority) {
+          if (!priority) return 'N/A';
+          return priority.charAt(0).toUpperCase() + priority.slice(1);
+        },
+
         // Hierarchy Methods
         async toggleSubtasks(task, event) {
           // Note: event.stopPropagation() not needed because we use @click.stop in the template
@@ -1648,6 +2683,47 @@ Created: ${this.formatDate(task.created_at)}`;
           } catch {
             return [];
           }
+        },
+
+        // Entity type badge helper (returns badge HTML for entity types)
+        // Usage in HTML string rendering: x-html="getEntityTypeBadge(entity.entity_type)"
+        // Example: `<div>${this.getEntityTypeBadge('file')}</div>`
+        getEntityTypeBadge(entityType) {
+          const badgeConfigs = {
+            'file': {
+              bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+              icon: `<svg class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>`,
+              label: 'file'
+            },
+            'other': {
+              bgClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+              icon: `<svg class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>`,
+              label: 'other'
+            }
+          };
+
+          const config = badgeConfigs[entityType] || badgeConfigs['other'];
+          return `
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bgClass}">
+              ${config.icon}
+              ${config.label}
+            </span>
+          `;
+        },
+
+        // Entity type badge classes helper (for use with Alpine.js :class binding)
+        // Usage in template: :class="getEntityTypeBadgeClasses(entity.entity_type)"
+        // Example: <span class="badge" :class="getEntityTypeBadgeClasses(entity.entity_type)">
+        getEntityTypeBadgeClasses(entityType) {
+          const classMap = {
+            'file': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+            'other': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+          };
+          return classMap[entityType] || classMap['other'];
         },
 
         // Recursive subtask rendering with visual hierarchy
@@ -1732,5 +2808,42 @@ Created: ${this.formatDate(task.created_at)}`;
       }
     }
   </script>
+
+  <!--
+    ========================================
+    METADATA VIEWER COMPONENT TEMPLATE
+    ========================================
+
+    Reusable template for displaying entity metadata with JSON formatting
+    and copy-to-clipboard functionality.
+
+    USAGE: Add this template wherever entity metadata needs to be displayed
+    (e.g., in entity detail modals, entity cards with metadata preview).
+
+    TEMPLATE:
+    <div class="metadata-viewer bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <div class="flex justify-between items-center mb-3">
+        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Metadata</h4>
+        <button
+          @click="copyMetadata(entity.metadata)"
+          class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors flex items-center gap-1"
+          :disabled="!entity.metadata"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          Copy
+        </button>
+      </div>
+
+      <template x-if="entity.metadata">
+        <pre class="text-xs font-mono text-gray-800 dark:text-gray-200 overflow-x-auto whitespace-pre-wrap bg-white dark:bg-gray-900 rounded p-3 border border-gray-200 dark:border-gray-700"><code x-text="formatJSON(entity.metadata)"></code></pre>
+      </template>
+
+      <template x-if="!entity.metadata">
+        <p class="text-sm text-gray-500 dark:text-gray-400 italic">No metadata available</p>
+      </template>
+    </div>
+  -->
 </body>
 </html>

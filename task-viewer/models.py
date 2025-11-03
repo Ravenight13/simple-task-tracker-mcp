@@ -110,3 +110,78 @@ class HealthCheckResponse(BaseModel):
     projects_loaded: int = 0
     timestamp: Optional[datetime] = None
     error: Optional[str] = None
+
+
+class EntityResponse(BaseModel):
+    """Response model for a single entity.
+
+    Entities are typed objects (file, vendor, etc.) that can be linked to tasks
+    for rich context management. Entity metadata is stored as a JSON string for
+    flexible domain-specific data storage.
+    """
+
+    id: int
+    entity_type: str = Field(..., description="Entity type: 'file' or 'other'")
+    name: str = Field(..., description="Human-readable entity name")
+    identifier: Optional[str] = Field(None, description="Unique identifier (file path, vendor code, etc.)")
+    description: Optional[str] = Field(None, max_length=10000, description="Entity description (max 10k chars)")
+    metadata: Optional[str] = Field(None, description="Generic JSON metadata as string")
+    tags: Optional[str] = Field(None, description="Space-separated tags")
+    created_by: str = Field(..., description="Conversation ID that created this entity")
+    created_at: str = Field(..., description="ISO 8601 timestamp")
+    updated_at: str = Field(..., description="ISO 8601 timestamp")
+    deleted_at: Optional[str] = Field(None, description="Soft delete timestamp")
+
+    class Config:
+        from_attributes = True
+
+
+class EntityListResponse(BaseModel):
+    """Response model for paginated entity list.
+
+    Used for list_entities endpoint with optional filtering by entity_type and tags.
+    """
+
+    entities: list[EntityResponse]
+    total: int = Field(..., description="Total number of entities matching filters")
+    limit: int = Field(100, description="Maximum entities per page")
+    offset: int = Field(0, description="Number of entities skipped")
+    filters: Optional[dict[str, Any]] = Field(None, description="Applied filters (entity_type, tags)")
+
+
+class EntitySearchResponse(BaseModel):
+    """Response model for entity search results.
+
+    Full-text search on entity name and identifier fields.
+    """
+
+    entities: list[EntityResponse]
+    total: int = Field(..., description="Total number of search results")
+    query: str = Field(..., description="Search query string")
+    limit: int = Field(20, description="Maximum results returned")
+
+
+class TagCount(BaseModel):
+    """Tag with occurrence count."""
+
+    tag: str = Field(..., description="Tag name")
+    count: int = Field(..., description="Number of entities with this tag")
+
+
+class EntityTypeCount(BaseModel):
+    """Entity counts by type."""
+
+    file: int = Field(0, description="Number of file entities")
+    other: int = Field(0, description="Number of other entities")
+
+
+class EntityStatsResponse(BaseModel):
+    """Response model for entity statistics.
+
+    Provides aggregate statistics about entities including counts by type
+    and top tags with frequencies.
+    """
+
+    total: int = Field(..., description="Total number of entities")
+    by_type: EntityTypeCount = Field(..., description="Entity counts by type")
+    top_tags: list[TagCount] = Field(..., description="Top 10 tags by frequency")
