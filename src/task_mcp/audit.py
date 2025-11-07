@@ -305,7 +305,11 @@ def _check_git_consistency(
     for task, path in all_paths:
         path_git_root = _find_git_root(path)
 
-        if path_git_root and workspace_git_root and Path(path_git_root).resolve() != Path(workspace_git_root).resolve():
+        if (
+            path_git_root
+            and workspace_git_root
+            and Path(path_git_root).resolve() != Path(workspace_git_root).resolve()
+        ):
             key = (task["id"], path_git_root)
             if key not in seen_mismatches:
                 seen_mismatches.add(key)

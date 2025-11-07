@@ -339,7 +339,9 @@ class Task(BaseModel):
         This cross-field validation enforces the business rule that blocked
         tasks must document why they are blocked.
         """
-        if self.status == 'blocked' and (not self.blocker_reason or not self.blocker_reason.strip()):
+        if self.status == 'blocked' and (
+            not self.blocker_reason or not self.blocker_reason.strip()
+        ):
             raise ValueError(
                 "blocker_reason is required when status is 'blocked'"
             )
@@ -437,7 +439,9 @@ class TaskCreate(BaseModel):
     @model_validator(mode='after')
     def validate_blocker_reason_required(self) -> 'TaskCreate':
         """Ensure blocker_reason is provided when status is 'blocked'."""
-        if self.status == 'blocked' and (not self.blocker_reason or not self.blocker_reason.strip()):
+        if self.status == 'blocked' and (
+            not self.blocker_reason or not self.blocker_reason.strip()
+        ):
             raise ValueError(
                 "blocker_reason is required when status is 'blocked'"
             )
@@ -495,7 +499,9 @@ class TaskUpdate(BaseModel):
         Note: This only validates if status is in the update. The database
         layer must check the current task status for complete validation.
         """
-        if self.status == 'blocked' and (not self.blocker_reason or not self.blocker_reason.strip()):
+        if self.status == 'blocked' and (
+            not self.blocker_reason or not self.blocker_reason.strip()
+        ):
             raise ValueError(
                 "blocker_reason is required when status is 'blocked'"
             )

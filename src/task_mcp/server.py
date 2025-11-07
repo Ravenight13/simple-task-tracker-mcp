@@ -171,7 +171,10 @@ def list_tasks(
             if hasattr(e, "to_dict"):
                 return {
                     "error": e.to_dict(),
-                    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                    "suggestion": (
+                        "Use pagination (limit parameter), summary mode, "
+                        "or filters to reduce results"
+                    ),
                 }
             raise
         return result
@@ -438,14 +441,22 @@ def update_task(
 
         # Check blocker_reason requirement
         final_status = status if status is not None else current_task["status"]
-        final_blocker_reason = blocker_reason if blocker_reason is not None else current_task.get("blocker_reason")
+        final_blocker_reason = (
+            blocker_reason if blocker_reason is not None else current_task.get("blocker_reason")
+        )
 
-        if final_status == "blocked" and (not final_blocker_reason or not final_blocker_reason.strip()):
+        if final_status == "blocked" and (
+            not final_blocker_reason or not final_blocker_reason.strip()
+        ):
             raise ValueError("blocker_reason is required when status is 'blocked'")
 
         # Check dependencies before allowing status transitions
         if status == "done":
-            depends_on_str = update_data.depends_on if update_data.depends_on is not None else current_task.get("depends_on")
+            depends_on_str = (
+                update_data.depends_on
+                if update_data.depends_on is not None
+                else current_task.get("depends_on")
+            )
             if depends_on_str:
                 try:
                     dep_ids: list[int] = json.loads(depends_on_str)
@@ -458,7 +469,8 @@ def update_task(
                         dep_row = cursor.fetchone()
                         if dep_row and dep_row["status"] != "done":
                             raise ValueError(
-                                f"Cannot mark task as done: dependency {dep_id} is not done (status: {dep_row['status']})"
+                                f"Cannot mark task as done: dependency {dep_id} "
+                                f"is not done (status: {dep_row['status']})"
                             )
                 except json.JSONDecodeError:
                     pass  # Invalid JSON, ignore dependency check
@@ -617,7 +629,10 @@ def search_tasks(
             if hasattr(e, "to_dict"):
                 return {
                     "error": e.to_dict(),
-                    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                    "suggestion": (
+                        "Use pagination (limit parameter), summary mode, "
+                        "or filters to reduce results"
+                    ),
                 }
             raise
         return result
@@ -715,7 +730,9 @@ def get_project_info(
             WHERE deleted_at IS NULL
             GROUP BY priority
         """)
-        project_info['by_priority'] = {row['priority']: row['count'] for row in task_cursor.fetchall()}
+        project_info['by_priority'] = {
+            row['priority']: row['count'] for row in task_cursor.fetchall()
+        }
 
         # Blocked count
         task_cursor.execute("""
@@ -836,7 +853,8 @@ def get_usage_stats(
                 tool_name,
                 COUNT(*) as calls,
                 SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful,
-                CAST(SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as success_rate
+                CAST(SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100
+                    as success_rate
             FROM tool_usage
             {where_clause}
             GROUP BY tool_name
@@ -970,7 +988,10 @@ def get_task_tree(
             if hasattr(e, "to_dict"):
                 return {
                     "error": e.to_dict(),
-                    "suggestion": "Use summary mode or get_task() with parent_task_id filter for paginated subtasks"
+                    "suggestion": (
+                        "Use summary mode or get_task() with parent_task_id filter "
+                        "for paginated subtasks"
+                    ),
                 }
             raise
         return tree_result
@@ -1625,7 +1646,10 @@ def get_entity_tasks(
         except ResponseSizeExceededError as e:
             return {
                 "error": e.to_dict(),
-                "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                "suggestion": (
+                    "Use pagination (limit parameter), summary mode, "
+                    "or filters to reduce results"
+                ),
             }
 
         return result
@@ -1675,7 +1699,9 @@ def update_entity(
         >>> update_entity(1, workspace_path="/path", identifier="/new/path/file.py")
 
         >>> # Update metadata
-        >>> update_entity(1, workspace_path="/path", metadata={"version": "2.0", "status": "active"})
+        >>> update_entity(
+        ...     1, workspace_path="/path", metadata={"version": "2.0", "status": "active"}
+        ... )
     """
     # Import at function level
     import json
@@ -1983,7 +2009,10 @@ def list_entities(
             if hasattr(e, "to_dict"):
                 return {
                     "error": e.to_dict(),
-                    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                    "suggestion": (
+                        "Use pagination (limit parameter), summary mode, "
+                        "or filters to reduce results"
+                    ),
                 }
             raise
         return result
@@ -2086,7 +2115,10 @@ def search_entities(
             if hasattr(e, "to_dict"):
                 return {
                     "error": e.to_dict(),
-                    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                    "suggestion": (
+                        "Use pagination (limit parameter), summary mode, "
+                        "or filters to reduce results"
+                    ),
                 }
             raise
         return result

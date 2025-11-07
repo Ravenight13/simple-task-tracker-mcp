@@ -841,7 +841,9 @@ class TestLinkEntityToTask:
         task1 = create_task(title="Task 1", workspace_path=test_workspace)
         task2 = create_task(title="Task 2", workspace_path=test_workspace)
         task3 = create_task(title="Task 3", workspace_path=test_workspace)
-        entity = create_entity(entity_type="file", name="Shared Entity", workspace_path=test_workspace)
+        entity = create_entity(
+            entity_type="file", name="Shared Entity", workspace_path=test_workspace
+        )
 
         # Link entity to all tasks
         link_entity_to_task(task1["id"], entity["id"], test_workspace)
@@ -1013,7 +1015,9 @@ class TestVendorWorkflow:
         assert vendor["entity_type"] == "other"
         assert vendor["name"] == "ABC Insurance Vendor"
         assert vendor["identifier"] == "ABC-INS"
-        assert vendor["metadata"] == '{"vendor_code": "ABC", "phase": "testing", "formats": ["xlsx", "pdf"]}'
+        assert vendor["metadata"] == (
+            '{"vendor_code": "ABC", "phase": "testing", "formats": ["xlsx", "pdf"]}'
+        )
         assert vendor["tags"] == "vendor insurance"
 
         # Step 2: Create task for vendor integration
@@ -1060,7 +1064,9 @@ class TestVendorWorkflow:
             workspace_path=test_workspace,
         )
 
-        assert updated_vendor["metadata"] == '{"vendor_code": "ABC", "phase": "active", "formats": ["xlsx", "pdf"]}'
+        assert updated_vendor["metadata"] == (
+            '{"vendor_code": "ABC", "phase": "active", "formats": ["xlsx", "pdf"]}'
+        )
         assert updated_vendor["updated_at"] != vendor["updated_at"]
 
         # Verify phase change persisted
@@ -1119,7 +1125,9 @@ class TestFileEntityWorkflow:
         assert file_entity["name"] == "Auth API Controller"
         assert file_entity["identifier"] == "/src/api/auth.py"
         assert file_entity["description"] == "Authentication endpoint handler"
-        assert file_entity["metadata"] == '{"language": "python", "line_count": 250, "complexity": "medium"}'
+        assert file_entity["metadata"] == (
+            '{"language": "python", "line_count": 250, "complexity": "medium"}'
+        )
         assert file_entity["tags"] == "backend api authentication"
         assert file_entity["deleted_at"] is None
 
@@ -1179,7 +1187,9 @@ class TestFileEntityWorkflow:
         )
 
         assert updated_file["id"] == file_entity["id"]
-        assert updated_file["metadata"] == '{"language": "python", "line_count": 180, "complexity": "low"}'
+        assert updated_file["metadata"] == (
+            '{"language": "python", "line_count": 180, "complexity": "low"}'
+        )
         assert updated_file["updated_at"] != file_entity["updated_at"]
 
         # Step 7: Delete file (task completed, file no longer tracked)
@@ -1234,7 +1244,9 @@ class TestFileEntityWorkflow:
 class TestDuplicateDetectionValidation:
     """Test duplicate detection logic for entity identifiers."""
 
-    def test_create_entity_duplicate_identifier_different_type_allowed(self, test_workspace: str) -> None:
+    def test_create_entity_duplicate_identifier_different_type_allowed(
+        self, test_workspace: str
+    ) -> None:
         """Different entity types can share identifier (file vs other)."""
         # Create file entity with identifier
         file_entity = create_entity(
@@ -1435,7 +1447,9 @@ class TestGetEntityTasks:
             workspace_path=test_workspace,
         )
         task1 = create_task(title="Todo Task", status="todo", workspace_path=test_workspace)
-        task2 = create_task(title="In Progress Task", status="in_progress", workspace_path=test_workspace)
+        task2 = create_task(
+            title="In Progress Task", status="in_progress", workspace_path=test_workspace
+        )
         task3 = create_task(title="Done Task", status="done", workspace_path=test_workspace)
 
         # Link all tasks to entity
@@ -1472,7 +1486,9 @@ class TestGetEntityTasks:
             workspace_path=test_workspace,
         )
         task1 = create_task(title="Low Priority", priority="low", workspace_path=test_workspace)
-        task2 = create_task(title="Medium Priority", priority="medium", workspace_path=test_workspace)
+        task2 = create_task(
+            title="Medium Priority", priority="medium", workspace_path=test_workspace
+        )
         task3 = create_task(title="High Priority", priority="high", workspace_path=test_workspace)
 
         # Link all tasks to entity

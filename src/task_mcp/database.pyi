@@ -56,7 +56,9 @@ def init_schema(conn: sqlite3.Connection) -> None:
     """
     ...
 
-def connection_context(workspace_path: str | None = None) -> AbstractContextManager[sqlite3.Connection]:
+def connection_context(
+    workspace_path: str | None = None,
+) -> AbstractContextManager[sqlite3.Connection]:
     """
     Context manager for database connections.
 

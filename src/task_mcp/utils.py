@@ -25,7 +25,8 @@ def resolve_workspace(workspace_path: str | None = None) -> str:
     if not workspace_path:
         raise ValueError(
             "workspace_path is REQUIRED. "
-            "Please provide an explicit workspace_path parameter to prevent cross-workspace contamination. "
+            "Please provide an explicit workspace_path parameter "
+            "to prevent cross-workspace contamination. "
             "Example: create_task(title='Fix bug', workspace_path='/path/to/project')"
         )
 

@@ -144,7 +144,10 @@ class InvalidFilterError(MCPError):
         """
         super().__init__(
             code="INVALID_FILTER",
-            message=f"Invalid {filter_name}: {invalid_value}. Must be one of: {', '.join(valid_values)}",
+            message=(
+                f"Invalid {filter_name}: {invalid_value}. "
+                f"Must be one of: {', '.join(valid_values)}"
+            ),
             details={
                 "filter_name": filter_name,
                 "invalid_value": invalid_value,
