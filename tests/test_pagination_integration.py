@@ -227,7 +227,7 @@ class TestEntityPaginationWithMode:
                 name=f"module_{i + 1}.py",
                 workspace_path=test_workspace,
                 identifier=f"/src/module_{i + 1}.py",
-                description=f"Large description content " * 50,
+                description="Large description content " * 50,
                 metadata={"version": "1.0", "status": "active"},
             )
 
