@@ -338,6 +338,7 @@ All paginated responses include metadata:
 - `list_tasks(limit, offset, mode)`
 - `search_tasks(limit, offset, mode)`
 - `list_entities(limit, offset, mode)`
+- `search_entities(limit, offset, mode)`
 - `get_entity_tasks(limit, offset, mode)`
 
 ### Usage Examples
