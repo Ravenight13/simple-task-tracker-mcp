@@ -41,7 +41,7 @@ def validate_response_size(
 ) -> None:
     """Validate response doesn't exceed token limit.
 
-    Raises ValueError if response exceeds max_tokens.
+    Raises ResponseSizeExceededError if response exceeds max_tokens.
     Logs warning if response approaches warning_threshold (>80% of max).
 
     Args:
@@ -50,24 +50,26 @@ def validate_response_size(
         warning_threshold: Token count to trigger warning (default 12000)
 
     Raises:
-        ValueError: If estimated tokens > max_tokens
+        ResponseSizeExceededError: If estimated tokens > max_tokens
 
     Side Effects:
         Logs warning message if tokens > warning_threshold
     """
+    from .errors import ResponseSizeExceededError
+
     tokens = estimate_tokens(response)
 
     if tokens > max_tokens:
-        raise ValueError(
-            f"Response exceeds token limit: {tokens} tokens > "
-            f"{max_tokens} max tokens. Consider using summary mode."
+        raise ResponseSizeExceededError(
+            actual_tokens=tokens,
+            max_tokens=max_tokens
         )
 
     if tokens > warning_threshold:
         logger.warning(
             f"Response approaching token limit: {tokens}/{max_tokens} tokens "
-            f"({100*tokens//max_tokens}% full). Consider using summary mode for "
-            f"better performance."
+            f"({100*tokens//max_tokens}% full). Consider using summary mode or "
+            f"pagination for better performance."
         )
 
 

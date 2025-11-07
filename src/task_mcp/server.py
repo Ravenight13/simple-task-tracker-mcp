@@ -5,6 +5,10 @@ from typing import Any
 
 from fastmcp import Context, FastMCP
 
+from .errors import (
+    InvalidModeError,
+    ResponseSizeExceededError,
+)
 from .views import (
     entity_summary_view,
     link_metadata_summary,
@@ -24,7 +28,14 @@ def track_usage(func):
         from .master import get_project_id, record_tool_usage
         from .utils import resolve_workspace
 
-        tool_name = func.__name__
+        # Handle both regular functions and FunctionTool objects from FastMCP
+        if hasattr(func, '__name__'):
+            tool_name = func.__name__
+        elif hasattr(func, 'name'):
+            tool_name = func.name
+        else:
+            tool_name = 'unknown'
+
         workspace_path = kwargs.get('workspace_path')
         success = True
 
@@ -154,7 +165,15 @@ def list_tasks(
         }
 
         # Validate response size doesn't exceed token limit
-        validate_response_size(result)
+        try:
+            validate_response_size(result)
+        except Exception as e:
+            if hasattr(e, "to_dict"):
+                return {
+                    "error": e.to_dict(),
+                    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                }
+            raise
         return result
     finally:
         conn.close()
@@ -591,7 +610,16 @@ def search_tasks(
             "items": items,
         }
 
-        validate_response_size(result)
+        # Validate response size doesn't exceed token limit
+        try:
+            validate_response_size(result)
+        except Exception as e:
+            if hasattr(e, "to_dict"):
+                return {
+                    "error": e.to_dict(),
+                    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                }
+            raise
         return result
     finally:
         conn.close()
@@ -924,16 +952,27 @@ def get_task_tree(
         if not result:
             raise ValueError(f"Task {task_id} not found")
 
+        # Validate mode first
+        if mode not in ("summary", "details"):
+            error = InvalidModeError(mode)
+            return {"error": error.to_dict()}
+
         # Apply view transformation based on mode
         if mode == "summary":
             tree_result = task_tree_summary(result)
-        elif mode == "details":
-            tree_result = result
         else:
-            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+            tree_result = result
 
         # Validate response size doesn't exceed token limit
-        validate_response_size(tree_result)
+        try:
+            validate_response_size(tree_result)
+        except Exception as e:
+            if hasattr(e, "to_dict"):
+                return {
+                    "error": e.to_dict(),
+                    "suggestion": "Use summary mode or get_task() with parent_task_id filter for paginated subtasks"
+                }
+            raise
         return tree_result
     finally:
         conn.close()
@@ -1414,13 +1453,16 @@ def get_task_entities(
         # Convert Row objects to dicts
         entities_list = [dict(entity) for entity in entities]
 
+        # Validate mode
+        if mode not in ("summary", "details"):
+            error = InvalidModeError(mode)
+            return {"error": error.to_dict()}
+
         # Apply view transformation based on mode
         if mode == "summary":
             return [link_metadata_summary(entity) for entity in entities_list]
-        elif mode == "details":
-            return entities_list
         else:
-            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+            return entities_list
 
     finally:
         conn.close()
@@ -1576,6 +1618,15 @@ def get_entity_tasks(
             "offset": offset,
             "items": items,
         }
+
+        # Validate response size doesn't exceed token limit
+        try:
+            validate_response_size(result)
+        except ResponseSizeExceededError as e:
+            return {
+                "error": e.to_dict(),
+                "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+            }
 
         return result
 
@@ -1857,11 +1908,30 @@ def list_entities(
         mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
-        Dict with pagination metadata and entity list
+        Dict with pagination metadata and entity list:
+        {
+            "total_count": int,
+            "returned_count": int,
+            "limit": int,
+            "offset": int,
+            "items": list[dict],
+            "mode": str
+        }
     """
-    from .database import get_connection
+    from .database import get_connection, get_total_count, validate_pagination_params
     from .master import register_project
     from .utils import resolve_workspace
+
+    # Validate pagination parameters
+    try:
+        limit, offset = validate_pagination_params(limit, offset)
+    except Exception as e:
+        return {"error": e.to_dict() if hasattr(e, "to_dict") else {"message": str(e)}}
+
+    # Validate mode
+    if mode not in ("summary", "details"):
+        error = InvalidModeError(mode)
+        return {"error": error.to_dict()}
 
     # Auto-register project and update last_accessed
     workspace = resolve_workspace(workspace_path)
@@ -1889,7 +1959,11 @@ def list_entities(
                     params.append(f"%{tag}%")
                 query += f" AND ({' OR '.join(tag_conditions)})"
 
+        # Get total count before pagination
+        total_count = get_total_count(cursor, query, params)
+
         query += " ORDER BY created_at DESC"
+        query += f" LIMIT {limit} OFFSET {offset}"
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -1898,14 +1972,28 @@ def list_entities(
 
         # Apply view transformation based on mode
         if mode == "summary":
-            result = [entity_summary_view(entity) for entity in entities]
-        elif mode == "details":
-            result = entities
+            items = [entity_summary_view(entity) for entity in entities]
         else:
-            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+            items = entities
+
+        result: dict[str, Any] = {
+            "total_count": total_count,
+            "returned_count": len(items),
+            "limit": limit,
+            "offset": offset,
+            "items": items,
+            "mode": mode,
+        }
 
         # Validate response size doesn't exceed token limit
-        validate_response_size(result)
+        try:
+            validate_response_size(result)
+        except ResponseSizeExceededError as e:
+            return {
+                "error": e.to_dict(),
+                "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+            }
+
         return result
     finally:
         conn.close()
@@ -1916,8 +2004,10 @@ def search_entities(
     search_term: str,
     workspace_path: str,
     entity_type: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
     mode: str = "summary",
-) -> list[dict[str, Any]]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     """
     Search entities by partial match on name or identifier.
 
@@ -1925,14 +2015,35 @@ def search_entities(
         search_term: Text to search for (case-insensitive)
         workspace_path: REQUIRED workspace path
         entity_type: Optional filter by entity_type
+        limit: Number of items to return (1-1000, default 100)
+        offset: Number of items to skip (default 0)
         mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
-        List of matching entity dicts, ordered by created_at DESC
+        Dict with pagination metadata and entity list:
+        {
+            "total_count": int,
+            "returned_count": int,
+            "limit": int,
+            "offset": int,
+            "items": list[dict],
+            "mode": str
+        }
     """
-    from .database import get_connection
+    from .database import get_connection, get_total_count, validate_pagination_params
     from .master import register_project
     from .utils import resolve_workspace
+
+    # Validate pagination parameters
+    try:
+        limit, offset = validate_pagination_params(limit, offset)
+    except Exception as e:
+        return {"error": e.to_dict() if hasattr(e, "to_dict") else {"message": str(e)}}
+
+    # Validate mode
+    if mode not in ("summary", "details"):
+        error = InvalidModeError(mode)
+        return {"error": error.to_dict()}
 
     # Auto-register project and update last_accessed
     workspace = resolve_workspace(workspace_path)
@@ -1959,7 +2070,11 @@ def search_entities(
             query += " AND entity_type = ?"
             params.append(entity_type)
 
+        # Get total count before pagination
+        total_count = get_total_count(cursor, query, params)
+
         query += " ORDER BY created_at DESC"
+        query += f" LIMIT {limit} OFFSET {offset}"
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -1968,11 +2083,29 @@ def search_entities(
 
         # Apply view transformation based on mode
         if mode == "summary":
-            return [entity_summary_view(entity) for entity in entities]
-        elif mode == "details":
-            return entities
+            items = [entity_summary_view(entity) for entity in entities]
         else:
-            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+            items = entities
+
+        result: dict[str, Any] = {
+            "total_count": total_count,
+            "returned_count": len(items),
+            "limit": limit,
+            "offset": offset,
+            "items": items,
+            "mode": mode,
+        }
+
+        # Validate response size doesn't exceed token limit
+        try:
+            validate_response_size(result)
+        except ResponseSizeExceededError as e:
+            return {
+                "error": e.to_dict(),
+                "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+            }
+
+        return result
     finally:
         conn.close()
 

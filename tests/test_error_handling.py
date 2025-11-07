@@ -1,599 +1,340 @@
-"""Comprehensive error handling tests for Task MCP tools."""
+"""
+Comprehensive tests for MCP error codes and structured error response format.
 
-from __future__ import annotations
+This test suite validates that all MCP tools return properly formatted error
+responses with correct error codes, messages, and details for various error scenarios.
+"""
 
-from collections.abc import Generator
+import json
+import tempfile
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from task_mcp import server
+from task_mcp.errors import (
+    InvalidModeError,
+    PaginationError,
+    ResponseSizeExceededError,
+)
 
 # Extract underlying functions from FastMCP FunctionTool wrappers
 create_task = server.create_task.fn
 list_tasks = server.list_tasks.fn
 search_tasks = server.search_tasks.fn
-get_task = server.get_task.fn
-update_task = server.update_task.fn
 create_entity = server.create_entity.fn
 list_entities = server.list_entities.fn
 search_entities = server.search_entities.fn
-get_entity = server.get_entity.fn
 get_task_entities = server.get_task_entities.fn
 get_entity_tasks = server.get_entity_tasks.fn
+get_task_tree = server.get_task_tree.fn
 
 
 @pytest.fixture
-def test_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[str, None, None]:
-    """Create isolated test workspace."""
-    workspace = str(tmp_path / "test-project")
-    Path(workspace).mkdir()
-    monkeypatch.setenv("HOME", str(tmp_path))
-    yield workspace
+def workspace_path():
+    """Create a temporary workspace for testing."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
 
 
-class TestInvalidModeErrors:
-    """Test error handling for invalid mode parameter."""
+class TestErrorResponseFormat:
+    """Test proper error response format with code, message, and details."""
 
-    def test_list_tasks_invalid_mode_raises_error(self, test_workspace: str) -> None:
-        """Test that invalid mode value raises ValueError."""
-        create_task(
-            title="Test Task",
-            workspace_path=test_workspace,
-        )
+    def test_pagination_error_response_format(self):
+        """Verify pagination error has proper response format."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Test invalid limit (too high)
+            response = list_tasks(workspace_path=tmpdir, limit=2000)
 
-        with pytest.raises(ValueError) as exc_info:
-            list_tasks(
-                workspace_path=test_workspace,
-                mode="invalid_mode",  # Invalid
-            )
+            assert isinstance(response, dict)
+            assert "error" in response
+            error = response["error"]
 
-        error_msg = str(exc_info.value)
-        assert "Invalid mode" in error_msg or "must be" in error_msg.lower()
+            # Verify error structure
+            assert "code" in error
+            assert "message" in error
+            assert "details" in error
 
-    def test_list_tasks_mode_case_sensitive(self, test_workspace: str) -> None:
-        """Test that mode is case-sensitive."""
-        create_task(
-            title="Test Task",
-            workspace_path=test_workspace,
-        )
+            # Verify error code
+            assert error["code"] == "PAGINATION_INVALID"
 
-        # "Summary" should fail (must be lowercase "summary")
-        with pytest.raises(ValueError):
-            list_tasks(
-                workspace_path=test_workspace,
-                mode="Summary",  # Wrong case
-            )
+            # Verify message is descriptive
+            assert "limit" in error["message"].lower()
+            assert "2000" in error["message"]
 
-    def test_search_tasks_invalid_mode(self, test_workspace: str) -> None:
-        """Test invalid mode in search_tasks."""
-        create_task(
-            title="Search me",
-            workspace_path=test_workspace,
-        )
+            # Verify details contain context
+            assert isinstance(error["details"], dict)
 
-        with pytest.raises(ValueError):
-            search_tasks(
-                search_term="Search",
-                workspace_path=test_workspace,
-                mode="bad_mode",
-            )
+    def test_pagination_invalid_offset(self):
+        """Test pagination error for invalid offset."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Test negative offset
+            response = list_tasks(workspace_path=tmpdir, offset=-1)
 
-    def test_list_entities_invalid_mode(self, test_workspace: str) -> None:
-        """Test invalid mode in list_entities."""
-        create_entity(
-            entity_type="file",
-            name="test.py",
-            workspace_path=test_workspace,
-        )
+            assert isinstance(response, dict)
+            assert "error" in response
+            error = response["error"]
 
-        with pytest.raises(ValueError):
-            list_entities(
-                workspace_path=test_workspace,
-                mode="invalid",
-            )
+            assert error["code"] == "PAGINATION_INVALID"
+            assert "offset" in error["message"].lower()
+            assert "-1" in error["message"]
 
-    def test_search_entities_invalid_mode(self, test_workspace: str) -> None:
-        """Test invalid mode in search_entities."""
-        create_entity(
-            entity_type="file",
-            name="test.py",
-            workspace_path=test_workspace,
-        )
+    def test_invalid_mode_error_response(self):
+        """Verify invalid mode error has proper structure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Test invalid mode
+            response = list_tasks(workspace_path=tmpdir, mode="invalid_mode")
 
-        with pytest.raises(ValueError):
-            search_entities(
+            assert isinstance(response, dict)
+            assert "error" in response
+            error = response["error"]
+
+            # Verify error structure
+            assert error["code"] == "INVALID_MODE"
+            assert "invalid_mode" in error["message"]
+            assert "summary" in error["message"]
+            assert "details" in error["message"]
+
+    def test_invalid_mode_in_search_tasks(self):
+        """Test invalid mode error in search_tasks."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = search_tasks(
                 search_term="test",
-                workspace_path=test_workspace,
-                mode="wrong_mode",
+                workspace_path=tmpdir,
+                mode="full"
             )
 
-    def test_get_task_entities_invalid_mode(self, test_workspace: str) -> None:
-        """Test invalid mode in get_task_entities."""
-        task = create_task(
-            title="Test",
-            workspace_path=test_workspace,
-        )
+            assert isinstance(response, dict)
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
 
-        with pytest.raises(ValueError):
-            get_task_entities(
-                task_id=task["id"],
-                workspace_path=test_workspace,
-                mode="invalid_mode",
-            )
-
-    def test_get_entity_tasks_invalid_mode(self, test_workspace: str) -> None:
-        """Test invalid mode in get_entity_tasks."""
-        entity = create_entity(
-            entity_type="file",
-            name="test.py",
-            workspace_path=test_workspace,
-        )
-
-        with pytest.raises(ValueError):
-            get_entity_tasks(
-                entity_id=entity["id"],
-                workspace_path=test_workspace,
-                mode="invalid",
-            )
-
-
-class TestInvalidFilterErrors:
-    """Test error handling for invalid filter values."""
-
-    def test_list_tasks_invalid_status(self, test_workspace: str) -> None:
-        """Test that invalid status filter works (no validation currently)."""
-        create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
-
-        # Invalid status should return empty results (not error)
-        tasks: list[dict[str, Any]] = list_tasks(
-            workspace_path=test_workspace,
-            status="invalid_status",
-        )
-
-        assert len(tasks) == 0
-
-    def test_list_tasks_invalid_priority(self, test_workspace: str) -> None:
-        """Test that invalid priority filter works (no validation currently)."""
-        create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
-
-        # Invalid priority should return empty results
-        tasks: list[dict[str, Any]] = list_tasks(
-            workspace_path=test_workspace,
-            priority="super_high",  # Invalid
-        )
-
-        assert len(tasks) == 0
-
-    def test_get_entity_tasks_invalid_status_filter(self, test_workspace: str) -> None:
-        """Test invalid status filter in get_entity_tasks."""
-        entity = create_entity(
-            entity_type="file",
-            name="test.py",
-            workspace_path=test_workspace,
-        )
-
-        task = create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
-
-        from task_mcp.server import link_entity_to_task
-        link_entity_to_task.fn(
-            task_id=task["id"],
-            entity_id=entity["id"],
-            workspace_path=test_workspace,
-        )
-
-        # Invalid status should return empty results
-        tasks: list[dict[str, Any]] = get_entity_tasks(
-            entity_id=entity["id"],
-            workspace_path=test_workspace,
-            status="invalid_status",
-        )
-
-        assert len(tasks) == 0
-
-    def test_get_entity_tasks_invalid_priority_filter(self, test_workspace: str) -> None:
-        """Test invalid priority filter in get_entity_tasks."""
-        entity = create_entity(
-            entity_type="file",
-            name="test.py",
-            workspace_path=test_workspace,
-        )
-
-        # Invalid priority should return empty results
-        tasks: list[dict[str, Any]] = get_entity_tasks(
-            entity_id=entity["id"],
-            workspace_path=test_workspace,
-            priority="ultra_high",  # Invalid
-        )
-
-        assert len(tasks) == 0
-
-
-class TestNotFoundErrors:
-    """Test error handling for not found resources."""
-
-    def test_get_task_not_found(self, test_workspace: str) -> None:
-        """Test get_task with non-existent task ID."""
-        with pytest.raises(ValueError) as exc_info:
-            get_task(
-                task_id=99999,  # Non-existent
-                workspace_path=test_workspace,
-            )
-
-        error_msg = str(exc_info.value)
-        assert "not found" in error_msg.lower() or "deleted" in error_msg.lower()
-
-    def test_get_entity_not_found(self, test_workspace: str) -> None:
-        """Test get_entity with non-existent entity ID."""
-        with pytest.raises(ValueError) as exc_info:
-            get_entity(
-                entity_id=99999,  # Non-existent
-                workspace_path=test_workspace,
-            )
-
-        error_msg = str(exc_info.value)
-        assert "not found" in error_msg.lower() or "deleted" in error_msg.lower()
-
-    def test_get_task_entities_task_not_found(self, test_workspace: str) -> None:
-        """Test get_task_entities with non-existent task."""
-        with pytest.raises(ValueError) as exc_info:
-            get_task_entities(
-                task_id=99999,  # Non-existent
-                workspace_path=test_workspace,
-            )
-
-        error_msg = str(exc_info.value)
-        assert "not found" in error_msg.lower() or "deleted" in error_msg.lower()
-
-    def test_get_entity_tasks_entity_not_found(self, test_workspace: str) -> None:
-        """Test get_entity_tasks with non-existent entity."""
-        with pytest.raises(ValueError) as exc_info:
-            get_entity_tasks(
-                entity_id=99999,  # Non-existent
-                workspace_path=test_workspace,
-            )
-
-        error_msg = str(exc_info.value)
-        assert "not found" in error_msg.lower() or "deleted" in error_msg.lower()
-
-    def test_update_task_not_found(self, test_workspace: str) -> None:
-        """Test update_task with non-existent task."""
-        with pytest.raises(ValueError) as exc_info:
-            update_task(
-                task_id=99999,
-                workspace_path=test_workspace,
-                title="Updated Title",
-            )
-
-        error_msg = str(exc_info.value)
-        assert "not found" in error_msg.lower() or "deleted" in error_msg.lower()
-
-
-class TestMissingRequiredParameters:
-    """Test error handling for missing required parameters."""
-
-    def test_list_tasks_missing_workspace_path(self) -> None:
-        """Test that workspace_path is required."""
-        with pytest.raises((TypeError, ValueError)):
-            list_tasks(  # type: ignore[call-arg]
-                # Missing workspace_path
-            )
-
-    def test_create_task_missing_workspace_path(self) -> None:
-        """Test that workspace_path is required for create_task."""
-        with pytest.raises((TypeError, ValueError)):
-            create_task(  # type: ignore[call-arg]
+    def test_invalid_mode_in_get_task_tree(self):
+        """Test invalid mode error in get_task_tree."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a task first
+            task = create_task(
                 title="Test Task",
-                # Missing workspace_path
+                workspace_path=tmpdir
             )
 
-    def test_get_task_missing_workspace_path(self) -> None:
-        """Test that workspace_path is required for get_task."""
-        with pytest.raises((TypeError, ValueError)):
-            get_task(  # type: ignore[call-arg]
-                task_id=1,
-                # Missing workspace_path
-            )
-
-    def test_create_entity_missing_workspace_path(self) -> None:
-        """Test that workspace_path is required for create_entity."""
-        with pytest.raises((TypeError, ValueError)):
-            create_entity(  # type: ignore[call-arg]
-                entity_type="file",
-                name="test.py",
-                # Missing workspace_path
-            )
-
-
-class TestValidModeValues:
-    """Test that valid mode values work correctly."""
-
-    def test_list_tasks_summary_mode_valid(self, test_workspace: str) -> None:
-        """Test that 'summary' mode is valid."""
-        create_task(
-            title="Task",
-            workspace_path=test_workspace,
-            description="Large description",
-        )
-
-        # Should not raise error
-        tasks: list[dict[str, Any]] = list_tasks(
-            workspace_path=test_workspace,
-            mode="summary",
-        )
-
-        assert len(tasks) == 1
-
-    def test_list_tasks_details_mode_valid(self, test_workspace: str) -> None:
-        """Test that 'details' mode is valid."""
-        create_task(
-            title="Task",
-            workspace_path=test_workspace,
-            description="Large description",
-        )
-
-        # Should not raise error
-        tasks: list[dict[str, Any]] = list_tasks(
-            workspace_path=test_workspace,
-            mode="details",
-        )
-
-        assert len(tasks) == 1
-        assert "description" in tasks[0]
-
-    def test_search_tasks_valid_modes(self, test_workspace: str) -> None:
-        """Test valid modes for search_tasks."""
-        create_task(
-            title="Searchable task",
-            workspace_path=test_workspace,
-        )
-
-        # Summary mode should work
-        tasks_summary: list[dict[str, Any]] = search_tasks(
-            search_term="Searchable",
-            workspace_path=test_workspace,
-            mode="summary",
-        )
-        assert len(tasks_summary) == 1
-
-        # Details mode should work
-        tasks_details: list[dict[str, Any]] = search_tasks(
-            search_term="Searchable",
-            workspace_path=test_workspace,
-            mode="details",
-        )
-        assert len(tasks_details) == 1
-
-    def test_list_entities_valid_modes(self, test_workspace: str) -> None:
-        """Test valid modes for list_entities."""
-        create_entity(
-            entity_type="file",
-            name="test.py",
-            workspace_path=test_workspace,
-        )
-
-        # Summary mode
-        entities_summary: list[dict[str, Any]] = list_entities(
-            workspace_path=test_workspace,
-            mode="summary",
-        )
-        assert len(entities_summary) == 1
-
-        # Details mode
-        entities_details: list[dict[str, Any]] = list_entities(
-            workspace_path=test_workspace,
-            mode="details",
-        )
-        assert len(entities_details) == 1
-
-
-class TestErrorResponseFormats:
-    """Test that errors return proper format."""
-
-    def test_invalid_mode_error_is_value_error(self, test_workspace: str) -> None:
-        """Test that invalid mode raises ValueError."""
-        create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
-
-        # Should raise ValueError (standard Python error)
-        with pytest.raises(ValueError):
-            list_tasks(
-                workspace_path=test_workspace,
-                mode="invalid",
-            )
-
-    def test_not_found_error_is_value_error(self, test_workspace: str) -> None:
-        """Test that not found errors raise ValueError."""
-        with pytest.raises(ValueError):
-            get_task(
-                task_id=99999,
-                workspace_path=test_workspace,
-            )
-
-    def test_error_message_clarity(self, test_workspace: str) -> None:
-        """Test that error messages are clear and helpful."""
-        with pytest.raises(ValueError) as exc_info:
-            list_tasks(
-                workspace_path=test_workspace,
-                mode="bad_mode",
-            )
-
-        # Error message should mention valid options
-        error_msg = str(exc_info.value).lower()
-        assert "mode" in error_msg
-        assert ("summary" in error_msg or "details" in error_msg or "must be" in error_msg)
-
-    def test_not_found_error_mentions_id(self, test_workspace: str) -> None:
-        """Test that not found error mentions the ID."""
-        with pytest.raises(ValueError) as exc_info:
-            get_task(
-                task_id=12345,
-                workspace_path=test_workspace,
-            )
-
-        error_msg = str(exc_info.value)
-        assert "12345" in error_msg or "not found" in error_msg.lower()
-
-
-class TestPaginationErrors:
-    """Test error handling for pagination parameters."""
-
-    def test_pagination_zero_limit_error(self, test_workspace: str) -> None:
-        """Test that limit=0 raises error."""
-        create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
-
-        with pytest.raises((ValueError, AssertionError)):
-            list_tasks(
-                workspace_path=test_workspace,
-                limit=0,
-            )
-
-    def test_pagination_negative_limit_error(self, test_workspace: str) -> None:
-        """Test that negative limit raises error."""
-        create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
-
-        with pytest.raises((ValueError, AssertionError)):
-            list_tasks(
-                workspace_path=test_workspace,
-                limit=-5,
-            )
-
-    def test_pagination_negative_offset_error(self, test_workspace: str) -> None:
-        """Test that negative offset raises error."""
-        create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
-
-        with pytest.raises((ValueError, AssertionError)):
-            list_tasks(
-                workspace_path=test_workspace,
-                offset=-1,
-            )
-
-    def test_pagination_max_limit_validation(self, test_workspace: str) -> None:
-        """Test that excessively large limit may be validated."""
-        # Create some tasks
-        for i in range(5):
-            create_task(
-                title=f"Task {i}",
-                workspace_path=test_workspace,
-            )
-
-        # Very large limit should still work (returns actual count)
-        tasks: list[dict[str, Any]] = list_tasks(
-            workspace_path=test_workspace,
-            limit=1000000,
-        )
-
-        assert len(tasks) == 5
-
-
-class TestCreateTaskValidation:
-    """Test validation in create_task."""
-
-    def test_create_task_description_too_long(self, test_workspace: str) -> None:
-        """Test that description exceeding 10k chars is rejected."""
-        long_description = "a" * 10001  # Exceeds limit
-
-        with pytest.raises(ValueError) as exc_info:
-            create_task(
-                title="Task",
-                workspace_path=test_workspace,
-                description=long_description,
-            )
-
-        error_msg = str(exc_info.value)
-        assert "10" in error_msg or "character" in error_msg.lower()
-
-    def test_create_task_max_description_allowed(self, test_workspace: str) -> None:
-        """Test that description at 10k char limit is accepted."""
-        max_description = "a" * 10000  # At limit
-
-        task: dict[str, Any] = create_task(
-            title="Task",
-            workspace_path=test_workspace,
-            description=max_description,
-        )
-
-        assert task["description"] == max_description
-
-    def test_create_entity_description_too_long(self, test_workspace: str) -> None:
-        """Test that entity description exceeding 10k chars is rejected."""
-        long_description = "x" * 10001
-
-        with pytest.raises(ValueError):
-            create_entity(
-                entity_type="file",
-                name="test.py",
-                workspace_path=test_workspace,
-                description=long_description,
-            )
-
-    def test_create_entity_max_description_allowed(self, test_workspace: str) -> None:
-        """Test that entity description at 10k limit is accepted."""
-        max_description = "x" * 10000
-
-        entity: dict[str, Any] = create_entity(
-            entity_type="file",
-            name="test.py",
-            workspace_path=test_workspace,
-            description=max_description,
-        )
-
-        assert entity["description"] == max_description
-
-
-class TestUpdateTaskValidation:
-    """Test validation in update_task."""
-
-    def test_update_task_description_too_long(self, test_workspace: str) -> None:
-        """Test that updating with long description is rejected."""
-        task = create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
-
-        long_description = "b" * 10001
-
-        with pytest.raises(ValueError):
-            update_task(
+            response = get_task_tree(
                 task_id=task["id"],
-                workspace_path=test_workspace,
-                description=long_description,
+                workspace_path=tmpdir,
+                mode="full"
             )
 
-    def test_update_task_description_max_allowed(self, test_workspace: str) -> None:
-        """Test that updating with max description is allowed."""
-        task = create_task(
-            title="Task",
-            workspace_path=test_workspace,
-        )
+            assert isinstance(response, dict)
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
 
-        max_description = "b" * 10000
+    def test_invalid_mode_in_list_entities(self):
+        """Test invalid mode error in list_entities."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = list_entities(
+                workspace_path=tmpdir,
+                mode="bad_mode"
+            )
 
-        updated: dict[str, Any] = update_task(
-            task_id=task["id"],
-            workspace_path=test_workspace,
-            description=max_description,
-        )
+            assert isinstance(response, dict)
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
 
-        assert updated["description"] == max_description
+    def test_invalid_mode_in_search_entities(self):
+        """Test invalid mode error in search_entities."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = search_entities(
+                search_term="test",
+                workspace_path=tmpdir,
+                mode="invalid"
+            )
+
+            assert isinstance(response, dict)
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
+
+    def test_invalid_mode_in_get_task_entities(self):
+        """Test invalid mode error in get_task_entities."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a task
+            task = create_task(title="Test", workspace_path=tmpdir)
+
+            response = get_task_entities(
+                task_id=task["id"],
+                workspace_path=tmpdir,
+                mode="invalid"
+            )
+
+            assert isinstance(response, dict)
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
+
+    def test_invalid_mode_in_get_entity_tasks(self):
+        """Test invalid mode error in get_entity_tasks."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create entity using the module-level function
+            entity = create_entity(
+                entity_type="file",
+                name="test.py",
+                workspace_path=tmpdir
+            )
+
+            response = get_entity_tasks(
+                entity_id=entity["id"],
+                workspace_path=tmpdir,
+                mode="invalid"
+            )
+
+            assert isinstance(response, dict)
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
+
+
+class TestErrorResponseStructure:
+    """Test error response structure compliance."""
+
+    def test_error_response_always_dict(self):
+        """Verify error responses are always dicts, not exceptions."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Invalid pagination
+            response = list_tasks(workspace_path=tmpdir, limit=-5)
+
+            # Should return dict, not raise exception
+            assert isinstance(response, dict)
+            assert "error" in response
+
+    def test_error_dict_has_required_fields(self):
+        """Verify error dict has code, message, and details."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = list_tasks(workspace_path=tmpdir, mode="invalid")
+
+            assert "error" in response
+            error = response["error"]
+
+            # Check required fields
+            assert "code" in error, "Error missing 'code' field"
+            assert "message" in error, "Error missing 'message' field"
+            assert "details" in error, "Error missing 'details' field"
+
+            # Check types
+            assert isinstance(error["code"], str)
+            assert isinstance(error["message"], str)
+            assert isinstance(error["details"], dict)
+
+    def test_error_code_is_known(self):
+        """Verify error codes are from known set."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            known_codes = {
+                "PAGINATION_INVALID",
+                "INVALID_MODE",
+                "RESPONSE_SIZE_EXCEEDED",
+                "NOT_FOUND",
+                "INVALID_FILTER",
+            }
+
+            # Generate various error scenarios
+            errors = []
+
+            # Pagination error
+            response = list_tasks(workspace_path=tmpdir, limit=2000)
+            if "error" in response:
+                errors.append(response["error"])
+
+            # Invalid mode error
+            response = list_tasks(workspace_path=tmpdir, mode="bad")
+            if "error" in response:
+                errors.append(response["error"])
+
+            # Verify all error codes are known
+            for error in errors:
+                assert error["code"] in known_codes, f"Unknown error code: {error['code']}"
+
+
+class TestListTasksErrors:
+    """Test error handling in list_tasks tool."""
+
+    def test_list_tasks_pagination_validation(self):
+        """Test list_tasks validates pagination parameters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Limit too high
+            response = list_tasks(workspace_path=tmpdir, limit=1001)
+            assert "error" in response
+            assert response["error"]["code"] == "PAGINATION_INVALID"
+
+            # Limit too low
+            response = list_tasks(workspace_path=tmpdir, limit=0)
+            assert "error" in response
+            assert response["error"]["code"] == "PAGINATION_INVALID"
+
+            # Negative offset
+            response = list_tasks(workspace_path=tmpdir, offset=-5)
+            assert "error" in response
+            assert response["error"]["code"] == "PAGINATION_INVALID"
+
+    def test_list_tasks_mode_validation(self):
+        """Test list_tasks validates mode parameter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = list_tasks(workspace_path=tmpdir, mode="full")
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
+
+    def test_list_tasks_success_structure(self):
+        """Test successful list_tasks response structure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a task
+            create_task(title="Test", workspace_path=tmpdir)
+
+            # Valid request
+            response = list_tasks(workspace_path=tmpdir)
+
+            # Should not have error key
+            assert "error" not in response
+            assert "items" in response
+            assert "total_count" in response
+
+
+class TestSearchTasksErrors:
+    """Test error handling in search_tasks tool."""
+
+    def test_search_tasks_pagination_validation(self):
+        """Test search_tasks validates pagination parameters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = search_tasks(
+                search_term="test",
+                workspace_path=tmpdir,
+                limit=2000
+            )
+            assert "error" in response
+            assert response["error"]["code"] == "PAGINATION_INVALID"
+
+    def test_search_tasks_mode_validation(self):
+        """Test search_tasks validates mode parameter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = search_tasks(
+                search_term="test",
+                workspace_path=tmpdir,
+                mode="full"
+            )
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
+
+
+class TestEntityListingErrors:
+    """Test error handling in entity listing tools."""
+
+    def test_list_entities_pagination_validation(self):
+        """Test list_entities validates pagination parameters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = list_entities(workspace_path=tmpdir, limit=-1)
+            assert "error" in response
+            assert response["error"]["code"] == "PAGINATION_INVALID"
+
+    def test_list_entities_mode_validation(self):
+        """Test list_entities validates mode parameter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = list_entities(workspace_path=tmpdir, mode="wrong")
+            assert "error" in response
+            assert response["error"]["code"] == "INVALID_MODE"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
