@@ -1908,15 +1908,7 @@ def list_entities(
         mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
-        Dict with pagination metadata and entity list:
-        {
-            "total_count": int,
-            "returned_count": int,
-            "limit": int,
-            "offset": int,
-            "items": list[dict],
-            "mode": str
-        }
+        Dict with pagination metadata and entity list
     """
     from .database import get_connection, get_total_count, validate_pagination_params
     from .master import register_project
@@ -1982,18 +1974,18 @@ def list_entities(
             "limit": limit,
             "offset": offset,
             "items": items,
-            "mode": mode,
         }
 
         # Validate response size doesn't exceed token limit
         try:
             validate_response_size(result)
-        except ResponseSizeExceededError as e:
-            return {
-                "error": e.to_dict(),
-                "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
-            }
-
+        except Exception as e:
+            if hasattr(e, "to_dict"):
+                return {
+                    "error": e.to_dict(),
+                    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                }
+            raise
         return result
     finally:
         conn.close()
@@ -2020,15 +2012,7 @@ def search_entities(
         mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
-        Dict with pagination metadata and entity list:
-        {
-            "total_count": int,
-            "returned_count": int,
-            "limit": int,
-            "offset": int,
-            "items": list[dict],
-            "mode": str
-        }
+        Dict with pagination metadata and entity list
     """
     from .database import get_connection, get_total_count, validate_pagination_params
     from .master import register_project
@@ -2093,18 +2077,18 @@ def search_entities(
             "limit": limit,
             "offset": offset,
             "items": items,
-            "mode": mode,
         }
 
         # Validate response size doesn't exceed token limit
         try:
             validate_response_size(result)
-        except ResponseSizeExceededError as e:
-            return {
-                "error": e.to_dict(),
-                "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
-            }
-
+        except Exception as e:
+            if hasattr(e, "to_dict"):
+                return {
+                    "error": e.to_dict(),
+                    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+                }
+            raise
         return result
     finally:
         conn.close()
