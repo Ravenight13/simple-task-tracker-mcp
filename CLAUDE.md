@@ -193,6 +193,115 @@ create_task(
 - **Workspace Validation**: validate_task_workspace, audit_workspace_integrity (v0.4.0)
 - **Analytics**: get_usage_stats (v0.5.0)
 
+### Summary/Details Mode (v0.6.0)
+
+**Overview:**
+All listing and search tools support a `mode` parameter to reduce token usage. Default mode is "summary" which returns only essential fields. Use `mode="details"` to get complete data.
+
+**Affected Tools:**
+- `list_tasks` - List tasks with optional filters
+- `search_tasks` - Search tasks by title/description
+- `get_task_tree` - Get recursive task hierarchy
+- `list_entities` - List entities with optional filters
+- `search_entities` - Search entities by name/identifier
+- `get_task_entities` - Get entities linked to task
+- `get_entity_tasks` - Get tasks linked to entity
+
+**Task Summary Fields (8 fields, ~100-150 tokens):**
+- id
+- title
+- status
+- priority
+- tags
+- parent_task_id
+- created_at
+- updated_at
+
+**Task Details Fields (includes summary + 8+ additional):**
+- description (up to 10,000 chars)
+- depends_on
+- blocker_reason
+- file_references
+- created_by
+- completed_at
+- deleted_at
+- workspace_metadata
+
+**Entity Summary Fields (6 fields, ~50-80 tokens):**
+- id
+- entity_type
+- name
+- identifier
+- tags
+- created_at
+
+**Entity Details Fields (includes summary + 5 additional):**
+- description (up to 10,000 chars)
+- metadata (JSON)
+- created_by
+- updated_at
+- deleted_at
+
+**Link Metadata Preservation:**
+When using summary mode with relationship queries (`get_task_entities`, `get_entity_tasks`), link metadata is always preserved:
+- link_created_at
+- link_created_by
+
+**Usage Examples:**
+
+```python
+# Default summary mode (recommended for token efficiency)
+tasks = list_tasks(workspace_path="/path/to/project")
+# Returns: [{"id": 1, "title": "Task", "status": "todo", ...}]
+
+# Explicit summary mode
+tasks = list_tasks(workspace_path="/path/to/project", mode="summary")
+
+# Full details mode (when you need all fields)
+tasks = list_tasks(workspace_path="/path/to/project", mode="details")
+# Returns: [{"id": 1, "title": "Task", "description": "...", ...}]
+
+# Summary mode works with filters
+in_progress = list_tasks(
+    workspace_path="/path/to/project",
+    status="in_progress",
+    mode="summary"
+)
+
+# Search in summary mode
+results = search_tasks(
+    search_term="authentication",
+    workspace_path="/path/to/project",
+    mode="summary"  # Default
+)
+
+# Task tree in summary mode (recursive)
+tree = get_task_tree(
+    task_id=42,
+    workspace_path="/path/to/project",
+    mode="summary"  # Applies to parent AND all subtasks
+)
+
+# Entity relationships with link metadata
+entities = get_task_entities(
+    task_id=42,
+    workspace_path="/path/to/project",
+    mode="summary"  # Includes link_created_at, link_created_by
+)
+```
+
+**Token Reduction Impact:**
+- Typical task response: ~500-1000 tokens → ~100-150 tokens (70-85% reduction)
+- Typical entity response: ~200-400 tokens → ~50-80 tokens (75-80% reduction)
+- Task tree with 5 subtasks: ~2500 tokens → ~700 tokens (72% reduction)
+
+**Error Handling:**
+Invalid mode values raise `ValueError`:
+```python
+# Invalid - raises ValueError: "Invalid mode: invalid_mode. Must be 'summary' or 'details'"
+tasks = list_tasks(workspace_path="/path/to/project", mode="invalid_mode")
+```
+
 ### Auto-Capture Fields
 - `created_by`: Conversation ID from MCP context
 - `created_at`, `updated_at`: Automatic timestamps
@@ -782,6 +891,7 @@ files = get_task_entities(task_id=123)
 12. **Don't ignore workspace metadata**: Always capture workspace context on task creation
 13. **Don't skip validation for old tasks**: Use `validate_task_workspace` before working on existing tasks
 14. **Don't mix project contexts**: Run `audit_workspace_integrity` regularly to detect contamination
+15. **Remember summary mode is default**: All listing/search tools default to `mode="summary"` to reduce tokens - use `mode="details"` only when you need full data
 
 ## Project Goals
 
