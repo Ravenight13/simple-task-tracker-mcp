@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Generator
 from pathlib import Path
 
@@ -313,8 +312,9 @@ class TestAutoRegistration:
 
     def test_update_task_maintains_registration(self, temp_home: str) -> None:
         """Test update_task() maintains project registration."""
-        from task_mcp.server import create_task, update_task
         import time
+
+        from task_mcp.server import create_task, update_task
 
         # Create task
         task = create_task.fn(title="Original", workspace_path=temp_home)
@@ -357,8 +357,8 @@ class TestLastAccessedUpdates:
 
     def _get_last_accessed(self, workspace_path: str) -> str:
         """Helper to get last_accessed timestamp for a project."""
-        from task_mcp.utils import hash_workspace_path
         from task_mcp.master import get_master_connection
+        from task_mcp.utils import hash_workspace_path
 
         project_id = hash_workspace_path(workspace_path)
         conn = get_master_connection()
@@ -377,8 +377,9 @@ class TestLastAccessedUpdates:
 
     def test_last_accessed_updates_on_multiple_operations(self, temp_home: str) -> None:
         """Test last_accessed updates on various operations."""
-        from task_mcp.server import create_task, get_task, list_tasks, update_task
         import time
+
+        from task_mcp.server import create_task, get_task, list_tasks, update_task
 
         # Create task at T1
         task = create_task.fn(title="Test", workspace_path=temp_home)
@@ -430,7 +431,7 @@ class TestCrossProjectIsolation:
 
     def test_two_projects_have_separate_databases(self, temp_home: tuple[str, str]) -> None:
         """Test that two projects have separate task databases."""
-        from task_mcp.server import create_task, list_tasks, list_projects
+        from task_mcp.server import create_task, list_projects, list_tasks
 
         workspace_a, workspace_b = temp_home
 

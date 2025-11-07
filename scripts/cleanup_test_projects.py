@@ -17,7 +17,6 @@ Options:
 import argparse
 import sqlite3
 from pathlib import Path
-from datetime import datetime
 
 
 def get_master_db_path() -> Path:

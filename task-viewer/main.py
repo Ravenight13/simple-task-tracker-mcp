@@ -19,7 +19,7 @@ from typing import Any, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 # Load environment variables
@@ -32,7 +32,6 @@ from models import (
     EntitySearchResponse,
     EntityStatsResponse,
     EntityTypeCount,
-    ErrorResponse,
     HealthCheckResponse,
     ProjectInfoResponse,
     ProjectListResponse,

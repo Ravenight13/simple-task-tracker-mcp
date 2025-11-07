@@ -38,7 +38,7 @@ class TestListTasksSummaryMode:
     def test_list_tasks_summary_mode_default(self, test_workspace: str) -> None:
         """Test that summary mode is the default."""
         # Create task with description
-        task = create_task(
+        create_task(
             title="Test Task",
             description="This is a detailed description that should be excluded in summary mode",
             workspace_path=test_workspace,
@@ -183,7 +183,7 @@ class TestGetTaskTreeSummaryMode:
         )
 
         # Create subtask
-        child = create_task(
+        create_task(
             title="Child Task",
             description="Child description",
             parent_task_id=parent["id"],

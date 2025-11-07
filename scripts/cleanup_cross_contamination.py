@@ -15,12 +15,12 @@ Usage:
     python cleanup_cross_contamination.py --verify
 """
 
-import sys
-import sqlite3
-from pathlib import Path
-from datetime import datetime
-import hashlib
 import argparse
+import hashlib
+import sqlite3
+import sys
+from datetime import datetime
+from pathlib import Path
 
 
 def get_workspace_hash(workspace_path: str) -> str:
@@ -185,7 +185,7 @@ def dry_run(workspace_path: str):
             print(f"  ✓ Task #{task['id']}: {task['title']}")
 
     print(f"\nExpected tasks after cleanup: {len(legitimate_ids)}")
-    print(f"Expected: 15 legitimate tasks (Framework Modernization + vendor tasks)")
+    print("Expected: 15 legitimate tasks (Framework Modernization + vendor tasks)")
 
     if len(legitimate_ids) == 15:
         print("✅ Count matches expected")
@@ -299,7 +299,7 @@ def verify_only(workspace_path: str):
     contaminated_ids = get_cross_contaminated_task_ids()
 
     print(f"\nTotal tasks visible: {len(all_tasks)}")
-    print(f"Expected after cleanup: 15 tasks")
+    print("Expected after cleanup: 15 tasks")
 
     # Check for contaminated tasks
     still_contaminated = [t for t in all_tasks if t["id"] in contaminated_ids]
@@ -372,7 +372,7 @@ def main():
         dry_run(workspace_str)
     elif args.execute:
         # Confirm before executing
-        print(f"⚠️  This will soft-delete 32 cross-contaminated tasks from:")
+        print("⚠️  This will soft-delete 32 cross-contaminated tasks from:")
         print(f"   {workspace_str}")
         print(f"\nDatabase: {get_database_path(workspace_str)}")
 

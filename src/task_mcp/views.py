@@ -5,7 +5,70 @@ into summary views containing only essential fields, significantly reducing toke
 usage when listing or searching tasks and entities.
 """
 
+import logging
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+
+def estimate_tokens(obj: Any) -> int:
+    """Estimate token count for a response object.
+
+    Uses character count with ~4 characters per token as a heuristic.
+    This provides a reasonable estimate for monitoring token usage.
+
+    Args:
+        obj: The object to estimate tokens for (dict, list, string, or other)
+
+    Returns:
+        Estimated token count (integer)
+    """
+    if isinstance(obj, dict):
+        return sum(estimate_tokens(v) for v in obj.values())
+    elif isinstance(obj, list):
+        return sum(estimate_tokens(item) for item in obj)
+    elif isinstance(obj, str):
+        return len(obj) // 4  # Approximate 4 chars per token
+    else:
+        # For numbers, booleans, None, etc.
+        return 0
+
+
+def validate_response_size(
+    response: Any,
+    max_tokens: int = 15000,
+    warning_threshold: int = 12000
+) -> None:
+    """Validate response doesn't exceed token limit.
+
+    Raises ValueError if response exceeds max_tokens.
+    Logs warning if response approaches warning_threshold (>80% of max).
+
+    Args:
+        response: The response object to validate
+        max_tokens: Maximum allowed tokens (default 15000)
+        warning_threshold: Token count to trigger warning (default 12000)
+
+    Raises:
+        ValueError: If estimated tokens > max_tokens
+
+    Side Effects:
+        Logs warning message if tokens > warning_threshold
+    """
+    tokens = estimate_tokens(response)
+
+    if tokens > max_tokens:
+        raise ValueError(
+            f"Response exceeds token limit: {tokens} tokens > "
+            f"{max_tokens} max tokens. Consider using summary mode."
+        )
+
+    if tokens > warning_threshold:
+        logger.warning(
+            f"Response approaching token limit: {tokens}/{max_tokens} tokens "
+            f"({100*tokens//max_tokens}% full). Consider using summary mode for "
+            f"better performance."
+        )
 
 
 def task_summary_view(task: Dict[str, Any]) -> Dict[str, Any]:

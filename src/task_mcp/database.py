@@ -247,6 +247,54 @@ def init_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def validate_pagination_params(limit: int, offset: int) -> tuple[int, int]:
+    """
+    Validate pagination parameters.
+
+    Args:
+        limit: Number of items to return (1-1000)
+        offset: Number of items to skip (>= 0)
+
+    Returns:
+        Tuple of (limit, offset) if valid
+
+    Raises:
+        ValueError: If limit or offset invalid
+    """
+    from .errors import PaginationError
+
+    if limit < 1 or limit > 1000:
+        raise PaginationError(
+            f"limit must be between 1 and 1000, got {limit}",
+            details={"limit": limit},
+        )
+    if offset < 0:
+        raise PaginationError(
+            f"offset must be >= 0, got {offset}",
+            details={"offset": offset},
+        )
+    return limit, offset
+
+
+def get_total_count(cursor: sqlite3.Cursor, query_base: str) -> int:
+    """
+    Get total count for paginated query.
+
+    Args:
+        cursor: SQLite cursor
+        query_base: Base query without LIMIT/OFFSET
+
+    Returns:
+        Total count of matching rows
+    """
+    # Remove ORDER BY clause for count (improves performance)
+    count_query = query_base.split("ORDER BY")[0]
+    count_query = f"SELECT COUNT(*) as count FROM ({count_query}) as t"
+    cursor.execute(count_query)
+    result = cursor.fetchone()
+    return result["count"] if result else 0
+
+
 @contextmanager
 def connection_context(workspace_path: str | None = None) -> Generator[sqlite3.Connection, None, None]:
     """

@@ -4,8 +4,10 @@ Capture console errors from the task viewer frontend.
 Server should already be running on http://localhost:8001
 """
 
-from playwright.sync_api import sync_playwright
 import json
+
+from playwright.sync_api import sync_playwright
+
 
 def capture_console_errors():
     console_messages = []

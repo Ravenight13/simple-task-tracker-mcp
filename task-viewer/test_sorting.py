@@ -4,9 +4,9 @@ Playwright test to diagnose Related Tasks table sorting issue.
 """
 
 import asyncio
-import json
 from datetime import datetime
 from pathlib import Path
+
 from playwright.async_api import async_playwright
 
 
@@ -47,7 +47,7 @@ async def test_sorting():
         print("\n[1] Navigating to application...")
         await page.goto(BASE_URL)
         await page.screenshot(path=SCREENSHOTS_DIR / f"{timestamp}_01_home.png")
-        print(f"   ✓ Screenshot: 01_home.png")
+        print("   ✓ Screenshot: 01_home.png")
 
         # Step 2: Set API key if needed
         print("\n[2] Checking if API key is needed...")
@@ -84,7 +84,7 @@ async def test_sorting():
             target_task = "Task (detail page)"
 
         await page.screenshot(path=SCREENSHOTS_DIR / f"{timestamp}_02_task_selected.png")
-        print(f"   ✓ Screenshot: 02_task_selected.png")
+        print("   ✓ Screenshot: 02_task_selected.png")
 
         # Step 4: Capture initial state
         print("\n[4] Capturing initial Related Tasks table state...")
@@ -105,12 +105,12 @@ async def test_sorting():
             }
         """)
 
-        print(f"   Alpine.js State:")
+        print("   Alpine.js State:")
         if alpine_data:
             print(f"     - sortColumn: {alpine_data.get('relatedTasksSortColumn')}")
             print(f"     - sortDirection: {alpine_data.get('relatedTasksSortDirection')}")
             print(f"     - sortRelatedTasks exists: {alpine_data.get('sortRelatedTasksExists')}")
-            print(f"     - Related tasks structure:")
+            print("     - Related tasks structure:")
             if alpine_data.get('detailPageRelatedTasks'):
                 related = alpine_data['detailPageRelatedTasks']
                 print(f"       - parent: {'Yes' if related.get('parent') else 'No'}")
@@ -135,7 +135,7 @@ async def test_sorting():
         print(f"   Initial task IDs order: {initial_task_ids}")
 
         await page.screenshot(path=SCREENSHOTS_DIR / f"{timestamp}_03_initial_state.png")
-        print(f"   ✓ Screenshot: 03_initial_state.png")
+        print("   ✓ Screenshot: 03_initial_state.png")
 
         # Step 5: Test ID sorting
         print("\n[5] Testing ID column sorting...")
@@ -148,7 +148,7 @@ async def test_sorting():
             print("   ⚠ ID header button not visible - table may be empty or hidden")
             print("   Skipping sort tests...")
             await page.screenshot(path=SCREENSHOTS_DIR / f"{timestamp}_04_no_table.png")
-            print(f"   ✓ Screenshot: 04_no_table.png")
+            print("   ✓ Screenshot: 04_no_table.png")
 
             # Try to debug - look for the table
             table_exists = await page.locator('h2:has-text("Related Tasks")').is_visible()
@@ -179,12 +179,12 @@ async def test_sorting():
             }
         """)
 
-        print(f"   After clicking ID header:")
+        print("   After clicking ID header:")
         if after_click_data:
             print(f"     - sortColumn: {after_click_data.get('relatedTasksSortColumn')}")
             print(f"     - sortDirection: {after_click_data.get('relatedTasksSortDirection')}")
         else:
-            print(f"     ✗ Could not access Alpine.js data after click")
+            print("     ✗ Could not access Alpine.js data after click")
 
         # Get task order after sort
         after_sort_ids = await page.evaluate("""
@@ -200,7 +200,7 @@ async def test_sorting():
         print(f"   Order changed: {initial_task_ids != after_sort_ids}")
 
         await page.screenshot(path=SCREENSHOTS_DIR / f"{timestamp}_04_after_id_sort.png")
-        print(f"   ✓ Screenshot: 04_after_id_sort.png")
+        print("   ✓ Screenshot: 04_after_id_sort.png")
 
         # Step 6: Test Title sorting
         print("\n[6] Testing Title column sorting...")
@@ -224,15 +224,15 @@ async def test_sorting():
             }
         """)
 
-        print(f"   After clicking Title header:")
+        print("   After clicking Title header:")
         if after_title_click:
             print(f"     - sortColumn: {after_title_click.get('relatedTasksSortColumn')}")
             print(f"     - sortDirection: {after_title_click.get('relatedTasksSortDirection')}")
         else:
-            print(f"     ✗ Could not access Alpine.js data after click")
+            print("     ✗ Could not access Alpine.js data after click")
 
         await page.screenshot(path=SCREENSHOTS_DIR / f"{timestamp}_05_after_title_sort.png")
-        print(f"   ✓ Screenshot: 05_after_title_sort.png")
+        print("   ✓ Screenshot: 05_after_title_sort.png")
 
         # Step 7: Check console logs and errors
         print("\n[7] Checking browser console...")
@@ -267,7 +267,7 @@ async def test_sorting():
             }
         """)
 
-        print(f"   Manual sort call result:")
+        print("   Manual sort call result:")
         print(f"     - Success: {manual_sort_result.get('success')}")
         print(f"     - Sort column: {manual_sort_result.get('sortColumn')}")
         print(f"     - Sort direction: {manual_sort_result.get('sortDirection')}")
@@ -276,7 +276,7 @@ async def test_sorting():
 
         await page.wait_for_timeout(500)
         await page.screenshot(path=SCREENSHOTS_DIR / f"{timestamp}_06_manual_sort.png")
-        print(f"   ✓ Screenshot: 06_manual_sort.png")
+        print("   ✓ Screenshot: 06_manual_sort.png")
 
         # Final summary
         print("\n" + "=" * 80)

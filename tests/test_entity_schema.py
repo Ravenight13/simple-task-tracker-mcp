@@ -12,11 +12,10 @@ Validates:
 import sqlite3
 import tempfile
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 
-from task_mcp.database import get_connection, init_schema
+from task_mcp.database import get_connection
 
 
 class TestEntitySchemaMigration:

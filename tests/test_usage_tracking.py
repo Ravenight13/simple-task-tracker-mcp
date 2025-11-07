@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from task_mcp.master import (
     get_master_connection,
-    get_project_id,
-    init_master_schema,
     record_tool_usage,
     register_project,
 )

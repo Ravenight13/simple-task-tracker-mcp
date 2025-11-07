@@ -7,7 +7,9 @@ Captures console errors, Alpine.js expression errors, and network issues.
 import asyncio
 import json
 from datetime import datetime
+
 from playwright.async_api import async_playwright
+
 
 async def debug_task_viewer():
     """Main debugging function to capture all frontend errors."""

@@ -10,6 +10,7 @@ from .views import (
     link_metadata_summary,
     task_summary_view,
     task_tree_summary,
+    validate_response_size,
 )
 
 # Initialize MCP server
@@ -30,7 +31,7 @@ def track_usage(func):
         try:
             result = func(*args, **kwargs)
             return result
-        except Exception as e:
+        except Exception:
             success = False
             raise
         finally:
@@ -55,10 +56,12 @@ def list_tasks(
     priority: str | None = None,
     parent_task_id: int | None = None,
     tags: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
     mode: str = "summary",
-) -> list[dict[str, Any]]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     """
-    List tasks with optional filters.
+    List tasks with optional filters and pagination.
 
     Args:
         workspace_path: REQUIRED workspace path
@@ -66,14 +69,35 @@ def list_tasks(
         priority: Filter by priority
         parent_task_id: Filter by parent task ID
         tags: Filter by tags (space-separated, partial match)
+        limit: Number of items to return (1-1000, default 100)
+        offset: Number of items to skip (default 0)
         mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
-        List of task objects matching filters
+        Dict with pagination metadata and task list:
+        {
+            "total_count": int,
+            "returned_count": int,
+            "limit": int,
+            "offset": int,
+            "items": list[dict]
+        }
     """
-    from .database import get_connection
+    from .database import get_connection, get_total_count, validate_pagination_params
+    from .errors import InvalidModeError
     from .master import register_project
     from .utils import resolve_workspace
+
+    # Validate pagination parameters
+    try:
+        limit, offset = validate_pagination_params(limit, offset)
+    except Exception as e:
+        return {"error": e.to_dict() if hasattr(e, "to_dict") else {"message": str(e)}}
+
+    # Validate mode
+    if mode not in ("summary", "details"):
+        error = InvalidModeError(mode)
+        return {"error": error.to_dict()}
 
     # Auto-register project and update last_accessed
     workspace = resolve_workspace(workspace_path)
@@ -104,7 +128,11 @@ def list_tasks(
             query += " AND tags LIKE ?"
             params.append(f"%{tags}%")
 
+        # Get total count before pagination
+        total_count = get_total_count(cursor, query)
+
         query += " ORDER BY created_at DESC"
+        query += f" LIMIT {limit} OFFSET {offset}"
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -113,11 +141,21 @@ def list_tasks(
 
         # Apply view transformation based on mode
         if mode == "summary":
-            return [task_summary_view(task) for task in tasks]
-        elif mode == "details":
-            return tasks
+            items = [task_summary_view(task) for task in tasks]
         else:
-            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+            items = tasks
+
+        result: dict[str, Any] = {
+            "total_count": total_count,
+            "returned_count": len(items),
+            "limit": limit,
+            "offset": offset,
+            "items": items,
+        }
+
+        # Validate response size doesn't exceed token limit
+        validate_response_size(result)
+        return result
     finally:
         conn.close()
 
@@ -471,26 +509,43 @@ def update_task(
         conn.close()
 
 
+@track_usage
 @mcp.tool()
 def search_tasks(
     search_term: str,
     workspace_path: str,
+    limit: int = 100,
+    offset: int = 0,
     mode: str = "summary",
-) -> list[dict[str, Any]]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     """
-    Search tasks by title or description (full-text).
+    Search tasks by title or description (full-text) with pagination.
 
     Args:
         search_term: Search term to match in title or description
         workspace_path: REQUIRED workspace path
+        limit: Number of items to return (1-1000, default 100)
+        offset: Number of items to skip (default 0)
         mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
-        List of matching tasks
+        Dict with pagination metadata and task list
     """
-    from .database import get_connection
+    from .database import get_connection, get_total_count, validate_pagination_params
+    from .errors import InvalidModeError
     from .master import register_project
     from .utils import resolve_workspace
+
+    # Validate pagination parameters
+    try:
+        limit, offset = validate_pagination_params(limit, offset)
+    except Exception as e:
+        return {"error": e.to_dict() if hasattr(e, "to_dict") else {"message": str(e)}}
+
+    # Validate mode
+    if mode not in ("summary", "details"):
+        error = InvalidModeError(mode)
+        return {"error": error.to_dict()}
 
     # Auto-register project and update last_accessed
     workspace = resolve_workspace(workspace_path)
@@ -500,16 +555,22 @@ def search_tasks(
     cursor = conn.cursor()
 
     try:
-        query = """
+        query_base = """
             SELECT * FROM tasks
             WHERE deleted_at IS NULL
             AND (
                 title LIKE ? OR description LIKE ?
             )
-            ORDER BY created_at DESC
         """
 
         search_pattern = f"%{search_term}%"
+
+        # Get total count before pagination
+        total_count = get_total_count(cursor, query_base)
+
+        query = query_base + " ORDER BY created_at DESC"
+        query += f" LIMIT {limit} OFFSET {offset}"
+
         cursor.execute(query, (search_pattern, search_pattern))
         rows = cursor.fetchall()
 
@@ -517,11 +578,20 @@ def search_tasks(
 
         # Apply view transformation based on mode
         if mode == "summary":
-            return [task_summary_view(task) for task in tasks]
-        elif mode == "details":
-            return tasks
+            items = [task_summary_view(task) for task in tasks]
         else:
-            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+            items = tasks
+
+        result: dict[str, Any] = {
+            "total_count": total_count,
+            "returned_count": len(items),
+            "limit": limit,
+            "offset": offset,
+            "items": items,
+        }
+
+        validate_response_size(result)
+        return result
     finally:
         conn.close()
 
@@ -697,6 +767,7 @@ def get_usage_stats(
         - date_range: Start and end dates
     """
     from datetime import datetime, timedelta
+
     from .master import get_master_connection, get_project_id
     from .utils import resolve_workspace
 
@@ -851,11 +922,15 @@ def get_task_tree(
 
         # Apply view transformation based on mode
         if mode == "summary":
-            return task_tree_summary(result)
+            tree_result = task_tree_summary(result)
         elif mode == "details":
-            return result
+            tree_result = result
         else:
             raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+
+        # Validate response size doesn't exceed token limit
+        validate_response_size(tree_result)
+        return tree_result
     finally:
         conn.close()
 
@@ -1353,8 +1428,10 @@ def get_entity_tasks(
     workspace_path: str,
     status: str | None = None,
     priority: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
     mode: str = "summary",
-) -> list[dict[str, Any]]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     """
     Get all tasks linked to an entity (reverse lookup).
 
@@ -1736,19 +1813,23 @@ def list_entities(
     workspace_path: str,
     entity_type: str | None = None,
     tags: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
     mode: str = "summary",
-) -> list[dict[str, Any]]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     """
-    List entities with optional filters.
+    List entities with optional filters and pagination.
 
     Args:
         workspace_path: REQUIRED workspace path
         entity_type: Filter by entity type ('file' or 'other')
         tags: Filter by tags (space-separated, partial match)
+        limit: Number of items to return (1-1000, default 100)
+        offset: Number of items to skip (default 0)
         mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
-        List of entity dicts matching filters
+        Dict with pagination metadata and entity list
     """
     from .database import get_connection
     from .master import register_project
@@ -1789,11 +1870,15 @@ def list_entities(
 
         # Apply view transformation based on mode
         if mode == "summary":
-            return [entity_summary_view(entity) for entity in entities]
+            result = [entity_summary_view(entity) for entity in entities]
         elif mode == "details":
-            return entities
+            result = entities
         else:
             raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+
+        # Validate response size doesn't exceed token limit
+        validate_response_size(result)
+        return result
     finally:
         conn.close()
 

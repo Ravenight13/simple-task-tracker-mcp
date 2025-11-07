@@ -13,7 +13,6 @@ pagination behavior, and authentication.
 
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Generator
 from pathlib import Path
@@ -31,16 +30,6 @@ sys.path.insert(0, str(task_viewer_path))
 with patch("starlette.staticfiles.StaticFiles"):
     # Import FastAPI app and models
     from main import app  # type: ignore[import]
-    from models import (  # type: ignore[import]
-        EntityListResponse,
-        EntityResponse,
-        EntitySearchResponse,
-        EntityStatsResponse,
-        EntityTypeCount,
-        TagCount,
-        TaskListResponse,
-        TaskResponse,
-    )
 
 
 @pytest.fixture

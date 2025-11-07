@@ -302,6 +302,259 @@ Invalid mode values raise `ValueError`:
 tasks = list_tasks(workspace_path="/path/to/project", mode="invalid_mode")
 ```
 
+## Pagination Support (v0.7.0)
+
+### Overview
+Pagination enables clients to retrieve large datasets incrementally using limit and offset parameters. All listing and search tools support pagination to prevent response size exceeding MCP limits.
+
+### Pagination Parameters
+
+**limit (optional, default: 100)**
+- Maximum number of items to return
+- Valid range: 1-1000
+- Recommended default: 100 for balanced throughput
+- Exceeding 1000 raises PaginationError
+
+**offset (optional, default: 0)**
+- Number of items to skip from beginning
+- Valid range: 0 or greater
+- Use to fetch subsequent pages
+- Negative values raise PaginationError
+
+### Response Format
+
+All paginated responses include metadata:
+```python
+{
+    "total_count": 1234,           # Total items matching filters
+    "returned_count": 100,          # Items in this response
+    "limit": 100,                   # Requested limit
+    "offset": 0,                    # Requested offset
+    "items": [...]                  # Actual items (summary or details)
+}
+```
+
+### Affected Tools
+- `list_tasks(limit, offset, mode)`
+- `search_tasks(limit, offset, mode)`
+- `list_entities(limit, offset, mode)`
+- `get_entity_tasks(limit, offset, mode)`
+
+### Usage Examples
+
+```python
+# Fetch first 100 tasks
+response = list_tasks(
+    workspace_path="/path/to/project",
+    limit=100,
+    offset=0
+)
+# Returns: {"total_count": 450, "returned_count": 100, "items": [...]}
+
+# Fetch next page
+response = list_tasks(
+    workspace_path="/path/to/project",
+    limit=100,
+    offset=100
+)
+
+# Fetch with filters and pagination
+response = list_tasks(
+    workspace_path="/path/to/project",
+    status="in_progress",
+    limit=50,
+    offset=0,
+    mode="summary"
+)
+
+# Walk through all results (cursor pattern)
+offset = 0
+all_items = []
+while True:
+    response = list_tasks(
+        workspace_path="/path/to/project",
+        limit=100,
+        offset=offset
+    )
+    all_items.extend(response["items"])
+    if response["returned_count"] < response["limit"]:
+        break  # Last page reached
+    offset += response["limit"]
+```
+
+### Error Handling
+
+**Invalid pagination parameters:**
+- limit ≤ 0: Raises `PaginationError`
+- limit > 1000: Raises `PaginationError`
+- offset < 0: Raises `PaginationError`
+
+Error response format:
+```python
+{
+    "error": {
+        "code": "PAGINATION_INVALID",
+        "message": "Invalid limit: 2000. Must be between 1 and 1000",
+        "details": {...}
+    }
+}
+```
+
+### Best Practices
+
+1. **Default limit:** Use default (100) unless you have specific needs
+2. **Pagination metadata:** Always check total_count to understand dataset size
+3. **Stop condition:** Stop when returned_count < limit (you've reached the end)
+4. **Combine with filters:** Use status, tags, priority filters to reduce dataset before paginating
+5. **Use summary mode:** Combine pagination with mode="summary" for token efficiency
+
+## MCP Error Handling (v0.7.0)
+
+### Overview
+Task MCP returns structured error responses with standard error codes, messages, and actionable details. All errors follow a consistent format for client handling.
+
+### Error Response Format
+
+```python
+{
+    "error": {
+        "code": "ERROR_CODE",
+        "message": "Human-readable error message",
+        "details": {
+            # Error-specific details
+        }
+    },
+    "suggestion": "Optional: How to fix this error"  # For some error types
+}
+```
+
+### Error Codes
+
+#### RESPONSE_SIZE_EXCEEDED (15k token limit)
+**Cause:** Response would exceed 15,000 token limit
+**When:** Large list_tasks(), search_tasks(), get_task_tree() responses
+**Solution:** Use pagination, filters, or summary mode
+
+```python
+# Error response
+{
+    "error": {
+        "code": "RESPONSE_SIZE_EXCEEDED",
+        "message": "Response (18,500 tokens) exceeds 15,000 token limit",
+        "details": {
+            "actual_tokens": 18500,
+            "max_tokens": 15000
+        }
+    },
+    "suggestion": "Use pagination (limit parameter), summary mode, or filters to reduce results"
+}
+
+# Solution: Add pagination
+response = list_tasks(
+    workspace_path="/path",
+    limit=100,  # Reduced limit
+    mode="summary"  # Use summary mode
+)
+```
+
+#### PAGINATION_INVALID
+**Cause:** Invalid limit or offset parameters
+**When:** limit ≤ 0, limit > 1000, offset < 0
+**Solution:** Use valid parameter ranges
+
+```python
+# Invalid
+list_tasks(limit=-5)  # Error: limit <= 0
+
+# Valid
+list_tasks(limit=100, offset=0)  # Correct
+```
+
+#### INVALID_MODE
+**Cause:** Invalid mode value for summary/details
+**When:** mode not "summary" or "details"
+**Solution:** Use correct mode value
+
+```python
+# Invalid
+list_tasks(mode="full")  # Error
+
+# Valid
+list_tasks(mode="summary")  # Correct
+list_tasks(mode="details")  # Correct
+```
+
+#### NOT_FOUND
+**Cause:** Task or entity does not exist
+**When:** get_task(id=999), get_entity(id=999) when not found
+**Solution:** Verify ID exists before querying
+
+#### INVALID_FILTER
+**Cause:** Invalid filter value
+**When:** status="invalid", priority="unknown"
+**Solution:** Use valid filter values
+
+Valid status values: `todo`, `in_progress`, `blocked`, `done`, `cancelled`, `to_be_deleted`
+Valid priority values: `low`, `medium`, `high`
+
+### Error Handling Patterns
+
+**Pattern 1: Check for errors before processing**
+```python
+response = list_tasks(workspace_path="/path")
+
+if "error" in response:
+    error_code = response["error"]["code"]
+    if error_code == "RESPONSE_SIZE_EXCEEDED":
+        # Retry with pagination
+        response = list_tasks(
+            workspace_path="/path",
+            limit=100,
+            offset=0
+        )
+    elif error_code == "PAGINATION_INVALID":
+        # Fix parameters and retry
+        response = list_tasks(
+            workspace_path="/path",
+            limit=100,
+            offset=0
+        )
+else:
+    # Process successful response
+    items = response["items"]
+```
+
+**Pattern 2: Graceful degradation with mode**
+```python
+response = list_tasks(workspace_path="/path", mode="details")
+
+if "error" in response and response["error"]["code"] == "RESPONSE_SIZE_EXCEEDED":
+    # Try again with summary mode
+    response = list_tasks(workspace_path="/path", mode="summary")
+    if "error" in response:
+        # Still too large, use pagination
+        response = list_tasks(
+            workspace_path="/path",
+            mode="summary",
+            limit=50,
+            offset=0
+        )
+```
+
+### Viewing Warnings
+
+Some operations log warnings when approaching limits:
+- Response > 12,000 tokens: Warning logged (doesn't error)
+- Approaching 15,000 token limit: Consider using pagination proactively
+
+```python
+# This succeeds but logs warning (13,500 tokens)
+response = list_tasks(workspace_path="/path")  # Warning: approaching token limit
+
+# Proactive: Use pagination before hitting error
+response = list_tasks(workspace_path="/path", limit=100)  # No warning
+```
+
 ### Auto-Capture Fields
 - `created_by`: Conversation ID from MCP context
 - `created_at`, `updated_at`: Automatic timestamps
@@ -892,6 +1145,11 @@ files = get_task_entities(task_id=123)
 13. **Don't skip validation for old tasks**: Use `validate_task_workspace` before working on existing tasks
 14. **Don't mix project contexts**: Run `audit_workspace_integrity` regularly to detect contamination
 15. **Remember summary mode is default**: All listing/search tools default to `mode="summary"` to reduce tokens - use `mode="details"` only when you need full data
+16. **Don't ignore pagination metadata**: Always check total_count to understand dataset size
+17. **Don't assume all results**: Paginated responses return at most `limit` items - use offset for more
+18. **Don't skip error checking**: Always check for "error" key in responses
+19. **Don't use invalid pagination**: limit must be 1-1000, offset must be >= 0
+20. **Don't expect all fields on error**: Error responses don't include "items" - check error code first
 
 ## Project Goals
 
