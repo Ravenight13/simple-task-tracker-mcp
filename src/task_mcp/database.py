@@ -276,13 +276,14 @@ def validate_pagination_params(limit: int, offset: int) -> tuple[int, int]:
     return limit, offset
 
 
-def get_total_count(cursor: sqlite3.Cursor, query_base: str) -> int:
+def get_total_count(cursor: sqlite3.Cursor, query_base: str, params: list[str | int] | None = None) -> int:
     """
     Get total count for paginated query.
 
     Args:
         cursor: SQLite cursor
         query_base: Base query without LIMIT/OFFSET
+        params: Parameter bindings for query placeholders
 
     Returns:
         Total count of matching rows
@@ -290,7 +291,7 @@ def get_total_count(cursor: sqlite3.Cursor, query_base: str) -> int:
     # Remove ORDER BY clause for count (improves performance)
     count_query = query_base.split("ORDER BY")[0]
     count_query = f"SELECT COUNT(*) as count FROM ({count_query}) as t"
-    cursor.execute(count_query)
+    cursor.execute(count_query, params or [])
     result = cursor.fetchone()
     return result["count"] if result else 0
 

@@ -129,7 +129,7 @@ def list_tasks(
             params.append(f"%{tags}%")
 
         # Get total count before pagination
-        total_count = get_total_count(cursor, query)
+        total_count = get_total_count(cursor, query, params)
 
         query += " ORDER BY created_at DESC"
         query += f" LIMIT {limit} OFFSET {offset}"
@@ -564,14 +564,15 @@ def search_tasks(
         """
 
         search_pattern = f"%{search_term}%"
+        search_params = [search_pattern, search_pattern]
 
         # Get total count before pagination
-        total_count = get_total_count(cursor, query_base)
+        total_count = get_total_count(cursor, query_base, search_params)
 
         query = query_base + " ORDER BY created_at DESC"
         query += f" LIMIT {limit} OFFSET {offset}"
 
-        cursor.execute(query, (search_pattern, search_pattern))
+        cursor.execute(query, search_params)
         rows = cursor.fetchall()
 
         tasks = [dict(row) for row in rows]
@@ -1550,7 +1551,7 @@ def get_entity_tasks(
             params.append(priority)
 
         # Get total count before pagination
-        total_count = get_total_count(cursor, query_base)
+        total_count = get_total_count(cursor, query_base, params)
 
         # Order by link creation (most recent first) and apply pagination
         query = query_base + " ORDER BY l.created_at DESC"
