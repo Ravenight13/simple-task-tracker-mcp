@@ -480,7 +480,8 @@ class TestListEntities:
             workspace_path=test_workspace,
         )
 
-        entities = list_entities(workspace_path=test_workspace)
+        response = list_entities(workspace_path=test_workspace)
+        entities = response["items"]
 
         assert len(entities) == 3
         names = {e["name"] for e in entities}
@@ -506,12 +507,14 @@ class TestListEntities:
         )
 
         # Filter by file type
-        file_entities = list_entities(entity_type="file", workspace_path=test_workspace)
+        response = list_entities(entity_type="file", workspace_path=test_workspace)
+        file_entities = response["items"]
         assert len(file_entities) == 2
         assert all(e["entity_type"] == "file" for e in file_entities)
 
         # Filter by other type
-        other_entities = list_entities(entity_type="other", workspace_path=test_workspace)
+        response = list_entities(entity_type="other", workspace_path=test_workspace)
+        other_entities = response["items"]
         assert len(other_entities) == 1
         assert other_entities[0]["name"] == "Vendor 1"
 
@@ -538,13 +541,15 @@ class TestListEntities:
         )
 
         # Filter by single tag
-        auth_entities = list_entities(tags="auth", workspace_path=test_workspace)
+        response = list_entities(tags="auth", workspace_path=test_workspace)
+        auth_entities = response["items"]
         assert len(auth_entities) == 2
         names = {e["name"] for e in auth_entities}
         assert names == {"Auth File", "API File"}
 
         # Filter by multiple tags (OR logic)
-        backend_entities = list_entities(tags="backend frontend", workspace_path=test_workspace)
+        response = list_entities(tags="backend frontend", workspace_path=test_workspace)
+        backend_entities = response["items"]
         assert len(backend_entities) == 3  # All match either backend or frontend
 
     def test_list_entities_filter_by_tags_partial_match(self, test_workspace: str) -> None:
@@ -557,7 +562,8 @@ class TestListEntities:
         )
 
         # Partial match should work
-        entities = list_entities(tags="auth", workspace_path=test_workspace)
+        response = list_entities(tags="auth", workspace_path=test_workspace)
+        entities = response["items"]
         assert len(entities) == 1
         assert entities[0]["name"] == "Test File"
 
@@ -579,13 +585,15 @@ class TestListEntities:
         delete_entity(entity2["id"], test_workspace)
 
         # List should only show active entity
-        entities = list_entities(workspace_path=test_workspace)
+        response = list_entities(workspace_path=test_workspace)
+        entities = response["items"]
         assert len(entities) == 1
         assert entities[0]["id"] == entity1["id"]
 
     def test_list_entities_empty_result(self, test_workspace: str) -> None:
         """Test listing entities returns empty list when no matches."""
-        entities = list_entities(workspace_path=test_workspace)
+        response = list_entities(workspace_path=test_workspace)
+        entities = response["items"]
         assert entities == []
 
         # Create entity but filter to non-matching type
@@ -595,7 +603,8 @@ class TestListEntities:
             workspace_path=test_workspace,
         )
 
-        other_entities = list_entities(entity_type="other", workspace_path=test_workspace)
+        response = list_entities(entity_type="other", workspace_path=test_workspace)
+        other_entities = response["items"]
         assert other_entities == []
 
     def test_list_entities_ordered_by_created_at_desc(self, test_workspace: str) -> None:
@@ -604,7 +613,8 @@ class TestListEntities:
         e2 = create_entity(entity_type="file", name="Second", workspace_path=test_workspace)
         e3 = create_entity(entity_type="file", name="Third", workspace_path=test_workspace)
 
-        entities = list_entities(workspace_path=test_workspace)
+        response = list_entities(workspace_path=test_workspace)
+        entities = response["items"]
 
         # Should be in reverse order (newest first)
         assert entities[0]["id"] == e3["id"]
@@ -630,7 +640,8 @@ class TestDeleteEntity:
         assert result["deleted_links"] == 0
 
         # Entity should not appear in list
-        entities = list_entities(workspace_path=test_workspace)
+        response = list_entities(workspace_path=test_workspace)
+        entities = response["items"]
         assert len(entities) == 0
 
     def test_delete_entity_cascades_links(self, test_workspace: str) -> None:
@@ -1026,7 +1037,8 @@ class TestVendorWorkflow:
         assert link["entity_id"] == vendor["id"]
 
         # Step 4: List all vendors (filter by type and tags)
-        vendors = list_entities(entity_type="other", tags="vendor", workspace_path=test_workspace)
+        response = list_entities(entity_type="other", tags="vendor", workspace_path=test_workspace)
+        vendors = response["items"]
 
         assert len(vendors) == 1
         assert vendors[0]["id"] == vendor["id"]
@@ -1067,7 +1079,8 @@ class TestVendorWorkflow:
             get_entity(vendor["id"], test_workspace)
 
         # Verify vendor not in list
-        vendors_after_delete = list_entities(entity_type="other", workspace_path=test_workspace)
+        response = list_entities(entity_type="other", workspace_path=test_workspace)
+        vendors_after_delete = response["items"]
         assert len(vendors_after_delete) == 0
 
         # Verify task no longer has vendor linked
@@ -1135,10 +1148,11 @@ class TestFileEntityWorkflow:
         assert link["created_at"] is not None
 
         # Step 4: List all file entities
-        all_files = list_entities(
+        response = list_entities(
             entity_type="file",
             workspace_path=test_workspace,
         )
+        all_files = response["items"]
 
         assert len(all_files) == 1
         assert all_files[0]["id"] == file_entity["id"]
@@ -1176,10 +1190,11 @@ class TestFileEntityWorkflow:
         assert delete_result["deleted_links"] == 1  # Link to refactor_task was deleted
 
         # Verify file no longer appears in lists
-        all_files_after_delete = list_entities(
+        response = list_entities(
             entity_type="file",
             workspace_path=test_workspace,
         )
+        all_files_after_delete = response["items"]
         assert len(all_files_after_delete) == 0
 
         # Verify file no longer appears in task entities
@@ -1207,10 +1222,11 @@ class TestFileEntityWorkflow:
         assert recreated_file["deleted_at"] is None
 
         # Verify recreated file appears in lists
-        all_files_final = list_entities(
+        response = list_entities(
             entity_type="file",
             workspace_path=test_workspace,
         )
+        all_files_final = response["items"]
         assert len(all_files_final) == 1
         assert all_files_final[0]["id"] == recreated_file["id"]
 
@@ -1371,7 +1387,8 @@ class TestGetEntityTasks:
         link_entity_to_task(task2["id"], entity["id"], test_workspace)
 
         # Get tasks for entity
-        tasks = get_entity_tasks(entity["id"], test_workspace)
+        response = get_entity_tasks(entity["id"], test_workspace)
+        tasks = response["items"]
 
         assert len(tasks) == 2
         task_titles = {t["title"] for t in tasks}
@@ -1398,7 +1415,8 @@ class TestGetEntityTasks:
         )
         link_entity_to_task(task["id"], entity["id"], test_workspace)
 
-        tasks = get_entity_tasks(entity["id"], test_workspace, mode="details")
+        response = get_entity_tasks(entity["id"], test_workspace, mode="details")
+        tasks = response["items"]
 
         assert len(tasks) == 1
         t = tasks[0]
@@ -1426,19 +1444,22 @@ class TestGetEntityTasks:
         link_entity_to_task(task3["id"], entity["id"], test_workspace)
 
         # Filter by status='todo'
-        todo_tasks = get_entity_tasks(entity["id"], test_workspace, status="todo")
+        response = get_entity_tasks(entity["id"], test_workspace, status="todo")
+        todo_tasks = response["items"]
         assert len(todo_tasks) == 1
         assert todo_tasks[0]["title"] == "Todo Task"
         assert todo_tasks[0]["status"] == "todo"
 
         # Filter by status='in_progress'
-        in_progress_tasks = get_entity_tasks(entity["id"], test_workspace, status="in_progress")
+        response = get_entity_tasks(entity["id"], test_workspace, status="in_progress")
+        in_progress_tasks = response["items"]
         assert len(in_progress_tasks) == 1
         assert in_progress_tasks[0]["title"] == "In Progress Task"
         assert in_progress_tasks[0]["status"] == "in_progress"
 
         # Filter by status='done'
-        done_tasks = get_entity_tasks(entity["id"], test_workspace, status="done")
+        response = get_entity_tasks(entity["id"], test_workspace, status="done")
+        done_tasks = response["items"]
         assert len(done_tasks) == 1
         assert done_tasks[0]["title"] == "Done Task"
         assert done_tasks[0]["status"] == "done"
@@ -1460,19 +1481,22 @@ class TestGetEntityTasks:
         link_entity_to_task(task3["id"], entity["id"], test_workspace)
 
         # Filter by priority='high'
-        high_priority_tasks = get_entity_tasks(entity["id"], test_workspace, priority="high")
+        response = get_entity_tasks(entity["id"], test_workspace, priority="high")
+        high_priority_tasks = response["items"]
         assert len(high_priority_tasks) == 1
         assert high_priority_tasks[0]["title"] == "High Priority"
         assert high_priority_tasks[0]["priority"] == "high"
 
         # Filter by priority='medium'
-        medium_priority_tasks = get_entity_tasks(entity["id"], test_workspace, priority="medium")
+        response = get_entity_tasks(entity["id"], test_workspace, priority="medium")
+        medium_priority_tasks = response["items"]
         assert len(medium_priority_tasks) == 1
         assert medium_priority_tasks[0]["title"] == "Medium Priority"
         assert medium_priority_tasks[0]["priority"] == "medium"
 
         # Filter by priority='low'
-        low_priority_tasks = get_entity_tasks(entity["id"], test_workspace, priority="low")
+        response = get_entity_tasks(entity["id"], test_workspace, priority="low")
+        low_priority_tasks = response["items"]
         assert len(low_priority_tasks) == 1
         assert low_priority_tasks[0]["title"] == "Low Priority"
         assert low_priority_tasks[0]["priority"] == "low"
@@ -1485,7 +1509,8 @@ class TestGetEntityTasks:
             workspace_path=test_workspace,
         )
 
-        tasks = get_entity_tasks(entity["id"], test_workspace)
+        response = get_entity_tasks(entity["id"], test_workspace)
+        tasks = response["items"]
 
         assert tasks == []
 
@@ -1509,7 +1534,8 @@ class TestGetEntityTasks:
         delete_task.fn(task2["id"], test_workspace)
 
         # Should only return active task
-        tasks = get_entity_tasks(entity["id"], test_workspace)
+        response = get_entity_tasks(entity["id"], test_workspace)
+        tasks = response["items"]
         assert len(tasks) == 1
         assert tasks[0]["title"] == "Active Task"
 
@@ -1534,7 +1560,8 @@ class TestGetEntityTasks:
         link_entity_to_task(t2["id"], entity["id"], test_workspace)
         link_entity_to_task(t3["id"], entity["id"], test_workspace)
 
-        tasks = get_entity_tasks(entity["id"], test_workspace)
+        response = get_entity_tasks(entity["id"], test_workspace)
+        tasks = response["items"]
 
         # Should be in reverse order (most recent link first)
         assert tasks[0]["id"] == t3["id"]
@@ -1559,7 +1586,8 @@ class TestGetEntityTasks:
         )
         link_entity_to_task(task["id"], entity["id"], test_workspace)
 
-        tasks = get_entity_tasks(entity["id"], test_workspace, mode="details")
+        response = get_entity_tasks(entity["id"], test_workspace, mode="details")
+        tasks = response["items"]
 
         assert len(tasks) == 1
         t = tasks[0]
@@ -1638,7 +1666,8 @@ class TestBidirectionalQueries:
         link_entity_to_task(task2["id"], entity["id"], test_workspace)
 
         # Query tasks for entity
-        tasks = get_entity_tasks(entity["id"], test_workspace)
+        response = get_entity_tasks(entity["id"], test_workspace)
+        tasks = response["items"]
 
         # Verify correct tasks returned
         assert len(tasks) == 2
@@ -1684,13 +1713,15 @@ class TestBidirectionalQueries:
         assert task_entity_ids == {entity1["id"], entity2["id"]}
 
         # Reverse query: entity1 → tasks
-        entity1_tasks = get_entity_tasks(entity1["id"], test_workspace)
+        response = get_entity_tasks(entity1["id"], test_workspace)
+        entity1_tasks = response["items"]
         assert len(entity1_tasks) == 1
         assert entity1_tasks[0]["id"] == task["id"]
         assert entity1_tasks[0]["title"] == "Refactor Auth Module"
 
         # Reverse query: entity2 → tasks
-        entity2_tasks = get_entity_tasks(entity2["id"], test_workspace)
+        response = get_entity_tasks(entity2["id"], test_workspace)
+        entity2_tasks = response["items"]
         assert len(entity2_tasks) == 1
         assert entity2_tasks[0]["id"] == task["id"]
         assert entity2_tasks[0]["title"] == "Refactor Auth Module"
@@ -1731,12 +1762,14 @@ class TestSearchEntities:
         )
 
         # Search for "login"
-        results = search_entities("login", workspace_path=test_workspace)
+        response = search_entities("login", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["name"] == "Login Controller"
 
         # Search for "logout"
-        results = search_entities("logout", workspace_path=test_workspace)
+        response = search_entities("logout", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["name"] == "Logout Handler"
 
@@ -1763,12 +1796,14 @@ class TestSearchEntities:
         )
 
         # Search by path fragment
-        results = search_entities("/src/auth/", workspace_path=test_workspace)
+        response = search_entities("/src/auth/", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["name"] == "Auth Module"
 
         # Search by vendor code
-        results = search_entities("ABC-INS", workspace_path=test_workspace)
+        response = search_entities("ABC-INS", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["name"] == "ABC Vendor"
 
@@ -1795,13 +1830,15 @@ class TestSearchEntities:
         )
 
         # Search for "auth" - should match both Authentication and Authorization
-        results = search_entities("auth", workspace_path=test_workspace)
+        response = search_entities("auth", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 2
         names = {r["name"] for r in results}
         assert names == {"Authentication Controller", "Authorization Handler"}
 
         # Search for "controller" - should match name and identifier
-        results = search_entities("controller", workspace_path=test_workspace)
+        response = search_entities("controller", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["name"] == "Authentication Controller"
 
@@ -1822,17 +1859,20 @@ class TestSearchEntities:
         )
 
         # Search for "login" without filter - should match both
-        results = search_entities("login", workspace_path=test_workspace)
+        response = search_entities("login", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 2
 
         # Search for "login" with file filter - should match only file
-        results = search_entities("login", entity_type="file", workspace_path=test_workspace)
+        response = search_entities("login", entity_type="file", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["entity_type"] == "file"
         assert results[0]["name"] == "Login File"
 
         # Search for "login" with other filter - should match only vendor
-        results = search_entities("login", entity_type="other", workspace_path=test_workspace)
+        response = search_entities("login", entity_type="other", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["entity_type"] == "other"
         assert results[0]["name"] == "Login Vendor"
@@ -1848,17 +1888,20 @@ class TestSearchEntities:
         )
 
         # Search with lowercase - should match
-        results = search_entities("userauth", workspace_path=test_workspace)
+        response = search_entities("userauth", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["name"] == "UserAuthService"
 
         # Search with uppercase - should match
-        results = search_entities("USERAUTH", workspace_path=test_workspace)
+        response = search_entities("USERAUTH", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["name"] == "UserAuthService"
 
         # Search with mixed case - should match
-        results = search_entities("UseRaUtH", workspace_path=test_workspace)
+        response = search_entities("UseRaUtH", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["name"] == "UserAuthService"
 
@@ -1879,11 +1922,13 @@ class TestSearchEntities:
         )
 
         # Search for non-existent term
-        results = search_entities("nonexistent", workspace_path=test_workspace)
+        response = search_entities("nonexistent", workspace_path=test_workspace)
+        results = response["items"]
         assert results == []
 
         # Search with type filter that has no matches
-        results = search_entities("login", entity_type="other", workspace_path=test_workspace)
+        response = search_entities("login", entity_type="other", workspace_path=test_workspace)
+        results = response["items"]
         assert results == []
 
     def test_search_entities_excludes_deleted(self, test_workspace: str) -> None:
@@ -1906,7 +1951,8 @@ class TestSearchEntities:
         delete_entity(entity2["id"], test_workspace)
 
         # Search for "controller" - should only return active entity
-        results = search_entities("controller", workspace_path=test_workspace)
+        response = search_entities("controller", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 1
         assert results[0]["id"] == entity1["id"]
         assert results[0]["name"] == "Active Controller"
@@ -1933,7 +1979,8 @@ class TestSearchEntities:
         )
 
         # Search for "vendor" - should return all in reverse order
-        results = search_entities("vendor", workspace_path=test_workspace)
+        response = search_entities("vendor", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 3
 
         # Should be in reverse chronological order (newest first)
@@ -1966,7 +2013,8 @@ class TestSearchEntities:
         )
 
         # Search for "vendor" - should match all three
-        results = search_entities("vendor", workspace_path=test_workspace)
+        response = search_entities("vendor", workspace_path=test_workspace)
+        results = response["items"]
         assert len(results) == 3
 
         names = {r["name"] for r in results}
@@ -1974,5 +2022,6 @@ class TestSearchEntities:
 
     def test_search_entities_empty_workspace(self, test_workspace: str) -> None:
         """Test search on empty workspace returns empty list."""
-        results = search_entities("anything", workspace_path=test_workspace)
+        response = search_entities("anything", workspace_path=test_workspace)
+        results = response["items"]
         assert results == []
