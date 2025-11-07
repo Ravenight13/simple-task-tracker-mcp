@@ -318,15 +318,19 @@ class TestListEntitiesPagination:
             )
 
         # List with pagination
-        # Note: list_entities currently returns a list, not a dict with pagination metadata
-        entities = list_entities(
+        response = list_entities(
             workspace_path=test_workspace,
             limit=4,
             offset=0,
         )
 
-        assert isinstance(entities, list)
-        assert len(entities) == 8  # Currently returns all items, not paginated
+        assert isinstance(response, dict)
+        assert "items" in response
+        assert response["total_count"] == 8
+        assert response["returned_count"] == 4
+        assert response["limit"] == 4
+        assert response["offset"] == 0
+        assert len(response["items"]) == 4
 
     def test_list_entities_pagination_with_type_filter(self, test_workspace: str) -> None:
         """Test entity pagination with type filter."""
@@ -344,17 +348,19 @@ class TestListEntitiesPagination:
             )
 
         # Get 'file' entities with pagination
-        # Note: list_entities currently returns a list, not a dict with pagination metadata
-        entities = list_entities(
+        response = list_entities(
             workspace_path=test_workspace,
             entity_type="file",
             limit=3,
             offset=0,
         )
 
-        assert isinstance(entities, list)
-        assert len(entities) == 5  # Currently returns all file items, not paginated
-        assert all(e["entity_type"] == "file" for e in entities)
+        assert isinstance(response, dict)
+        assert response["total_count"] == 5
+        assert response["returned_count"] == 3
+        assert response["limit"] == 3
+        assert len(response["items"]) == 3
+        assert all(e["entity_type"] == "file" for e in response["items"])
 
     def test_list_entities_pagination_offset(self, test_workspace: str) -> None:
         """Test entity pagination with offset."""
@@ -367,15 +373,18 @@ class TestListEntitiesPagination:
             )
 
         # Get items 5-7
-        # Note: list_entities currently returns a list, not a dict with pagination metadata
-        entities = list_entities(
+        response = list_entities(
             workspace_path=test_workspace,
             limit=3,
             offset=5,
         )
 
-        assert isinstance(entities, list)
-        assert len(entities) == 10  # Currently returns all items, not paginated
+        assert isinstance(response, dict)
+        assert response["total_count"] == 10
+        assert response["returned_count"] == 3
+        assert response["limit"] == 3
+        assert response["offset"] == 5
+        assert len(response["items"]) == 3
 
 
 class TestGetEntityTasksPagination:
@@ -543,17 +552,18 @@ class TestPaginationModeInteraction:
             )
 
         # Get with pagination and summary mode
-        # Note: list_entities currently returns a list, not a dict with pagination metadata
-        entities = list_entities(
+        response = list_entities(
             workspace_path=test_workspace,
             limit=5,
             mode="summary",
         )
 
-        assert isinstance(entities, list)
-        assert len(entities) == 10  # Currently returns all items, not paginated
+        assert isinstance(response, dict)
+        assert response["total_count"] == 10
+        assert response["returned_count"] == 5
+        assert len(response["items"]) == 5
         # Summary mode should exclude description
-        assert "description" not in entities[0]
+        assert "description" not in response["items"][0]
 
 
 class TestPaginationEdgeCases:
