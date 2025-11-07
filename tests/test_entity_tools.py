@@ -894,7 +894,7 @@ class TestGetTaskEntities:
         )
         link_entity_to_task(task["id"], entity["id"], test_workspace)
 
-        entities = get_task_entities(task["id"], test_workspace)
+        entities = get_task_entities(task["id"], test_workspace, mode="details")
 
         assert len(entities) == 1
         e = entities[0]
@@ -1398,7 +1398,7 @@ class TestGetEntityTasks:
         )
         link_entity_to_task(task["id"], entity["id"], test_workspace)
 
-        tasks = get_entity_tasks(entity["id"], test_workspace)
+        tasks = get_entity_tasks(entity["id"], test_workspace, mode="details")
 
         assert len(tasks) == 1
         t = tasks[0]
@@ -1559,7 +1559,7 @@ class TestGetEntityTasks:
         )
         link_entity_to_task(task["id"], entity["id"], test_workspace)
 
-        tasks = get_entity_tasks(entity["id"], test_workspace)
+        tasks = get_entity_tasks(entity["id"], test_workspace, mode="details")
 
         assert len(tasks) == 1
         t = tasks[0]

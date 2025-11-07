@@ -136,7 +136,7 @@ class TestAdvancedQueries:
         )
         create_task(title="Task 2", description="JavaScript code", workspace_path=test_workspace)
 
-        results = search_tasks("Python", test_workspace)
+        results = search_tasks("Python", test_workspace, mode="details")
         assert len(results) == 1
         assert "Python" in results[0]["description"]
 
@@ -180,7 +180,7 @@ class TestAdvancedQueries:
         create_task(title="Normal Task", workspace_path=test_workspace)
 
         # Migration: Use list_tasks with status filter instead of get_blocked_tasks
-        blocked = list_tasks(workspace_path=test_workspace, status="blocked")
+        blocked = list_tasks(workspace_path=test_workspace, status="blocked", mode="details")
         assert len(blocked) == 1
         assert blocked[0]["status"] == "blocked"
         assert blocked[0]["blocker_reason"] == "Waiting for API key"

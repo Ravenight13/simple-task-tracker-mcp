@@ -5,6 +5,13 @@ from typing import Any
 
 from fastmcp import Context, FastMCP
 
+from .views import (
+    entity_summary_view,
+    link_metadata_summary,
+    task_summary_view,
+    task_tree_summary,
+)
+
 # Initialize MCP server
 mcp = FastMCP("Task Tracker")
 
@@ -48,6 +55,7 @@ def list_tasks(
     priority: str | None = None,
     parent_task_id: int | None = None,
     tags: str | None = None,
+    mode: str = "summary",
 ) -> list[dict[str, Any]]:
     """
     List tasks with optional filters.
@@ -58,6 +66,7 @@ def list_tasks(
         priority: Filter by priority
         parent_task_id: Filter by parent task ID
         tags: Filter by tags (space-separated, partial match)
+        mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
         List of task objects matching filters
@@ -100,7 +109,15 @@ def list_tasks(
         cursor.execute(query, params)
         rows = cursor.fetchall()
 
-        return [dict(row) for row in rows]
+        tasks = [dict(row) for row in rows]
+
+        # Apply view transformation based on mode
+        if mode == "summary":
+            return [task_summary_view(task) for task in tasks]
+        elif mode == "details":
+            return tasks
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
     finally:
         conn.close()
 
@@ -458,6 +475,7 @@ def update_task(
 def search_tasks(
     search_term: str,
     workspace_path: str,
+    mode: str = "summary",
 ) -> list[dict[str, Any]]:
     """
     Search tasks by title or description (full-text).
@@ -465,6 +483,7 @@ def search_tasks(
     Args:
         search_term: Search term to match in title or description
         workspace_path: REQUIRED workspace path
+        mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
         List of matching tasks
@@ -494,7 +513,15 @@ def search_tasks(
         cursor.execute(query, (search_pattern, search_pattern))
         rows = cursor.fetchall()
 
-        return [dict(row) for row in rows]
+        tasks = [dict(row) for row in rows]
+
+        # Apply view transformation based on mode
+        if mode == "summary":
+            return [task_summary_view(task) for task in tasks]
+        elif mode == "details":
+            return tasks
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
     finally:
         conn.close()
 
@@ -764,6 +791,7 @@ def get_usage_stats(
 def get_task_tree(
     task_id: int,
     workspace_path: str,
+    mode: str = "summary",
 ) -> dict[str, Any]:
     """
     Get task with all descendant subtasks (recursive).
@@ -771,6 +799,7 @@ def get_task_tree(
     Args:
         task_id: Root task ID
         workspace_path: REQUIRED workspace path
+        mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
         Task object with 'subtasks' field containing nested subtasks
@@ -819,7 +848,14 @@ def get_task_tree(
         result = fetch_with_subtasks(conn, task_id)
         if not result:
             raise ValueError(f"Task {task_id} not found")
-        return result
+
+        # Apply view transformation based on mode
+        if mode == "summary":
+            return task_tree_summary(result)
+        elif mode == "details":
+            return result
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
     finally:
         conn.close()
 
@@ -1211,6 +1247,7 @@ def link_entity_to_task(
 def get_task_entities(
     task_id: int,
     workspace_path: str,
+    mode: str = "summary",
 ) -> list[dict[str, Any]]:
     """
     Get all entities linked to a task.
@@ -1220,6 +1257,7 @@ def get_task_entities(
     Args:
         task_id: Task ID to query
         workspace_path: REQUIRED workspace path
+        mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
         List of dicts with entity + link fields:
@@ -1295,7 +1333,15 @@ def get_task_entities(
         entities = cursor.fetchall()
 
         # Convert Row objects to dicts
-        return [dict(entity) for entity in entities]
+        entities_list = [dict(entity) for entity in entities]
+
+        # Apply view transformation based on mode
+        if mode == "summary":
+            return [link_metadata_summary(entity) for entity in entities_list]
+        elif mode == "details":
+            return entities_list
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
 
     finally:
         conn.close()
@@ -1307,6 +1353,7 @@ def get_entity_tasks(
     workspace_path: str,
     status: str | None = None,
     priority: str | None = None,
+    mode: str = "summary",
 ) -> list[dict[str, Any]]:
     """
     Get all tasks linked to an entity (reverse lookup).
@@ -1318,6 +1365,7 @@ def get_entity_tasks(
         workspace_path: REQUIRED workspace path
         status: Optional task status filter (todo, in_progress, done, etc.)
         priority: Optional task priority filter (low, medium, high)
+        mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
         List of dicts with task + link fields:
@@ -1416,7 +1464,15 @@ def get_entity_tasks(
         tasks = cursor.fetchall()
 
         # Convert Row objects to dicts
-        return [dict(task) for task in tasks]
+        tasks_list = [dict(task) for task in tasks]
+
+        # Apply view transformation based on mode
+        if mode == "summary":
+            return [link_metadata_summary(task) for task in tasks_list]
+        elif mode == "details":
+            return tasks_list
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
 
     finally:
         conn.close()
@@ -1680,6 +1736,7 @@ def list_entities(
     workspace_path: str,
     entity_type: str | None = None,
     tags: str | None = None,
+    mode: str = "summary",
 ) -> list[dict[str, Any]]:
     """
     List entities with optional filters.
@@ -1688,6 +1745,7 @@ def list_entities(
         workspace_path: REQUIRED workspace path
         entity_type: Filter by entity type ('file' or 'other')
         tags: Filter by tags (space-separated, partial match)
+        mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
         List of entity dicts matching filters
@@ -1727,7 +1785,15 @@ def list_entities(
         cursor.execute(query, params)
         rows = cursor.fetchall()
 
-        return [dict(row) for row in rows]
+        entities = [dict(row) for row in rows]
+
+        # Apply view transformation based on mode
+        if mode == "summary":
+            return [entity_summary_view(entity) for entity in entities]
+        elif mode == "details":
+            return entities
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
     finally:
         conn.close()
 
@@ -1737,6 +1803,7 @@ def search_entities(
     search_term: str,
     workspace_path: str,
     entity_type: str | None = None,
+    mode: str = "summary",
 ) -> list[dict[str, Any]]:
     """
     Search entities by partial match on name or identifier.
@@ -1745,6 +1812,7 @@ def search_entities(
         search_term: Text to search for (case-insensitive)
         workspace_path: REQUIRED workspace path
         entity_type: Optional filter by entity_type
+        mode: Output mode - "summary" (default, reduced fields) or "details" (all fields)
 
     Returns:
         List of matching entity dicts, ordered by created_at DESC
@@ -1783,7 +1851,15 @@ def search_entities(
         cursor.execute(query, params)
         rows = cursor.fetchall()
 
-        return [dict(row) for row in rows]
+        entities = [dict(row) for row in rows]
+
+        # Apply view transformation based on mode
+        if mode == "summary":
+            return [entity_summary_view(entity) for entity in entities]
+        elif mode == "details":
+            return entities
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
     finally:
         conn.close()
 
