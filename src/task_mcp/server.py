@@ -867,6 +867,9 @@ def get_task_tree(
     """
     Get task with all descendant subtasks (recursive).
 
+    Note: Pagination not supported for tree structures. Use get_task() with
+    parent_task_id filter if you need paginated subtask lists.
+
     Args:
         task_id: Root task ID
         workspace_path: REQUIRED workspace path
@@ -1486,9 +1489,21 @@ def get_entity_tasks(
             }
         ]
     """
-    from .database import get_connection
+    from .database import get_connection, get_total_count, validate_pagination_params
+    from .errors import InvalidModeError
     from .master import register_project
     from .utils import resolve_workspace
+
+    # Validate pagination parameters
+    try:
+        limit, offset = validate_pagination_params(limit, offset)
+    except Exception as e:
+        return {"error": e.to_dict() if hasattr(e, "to_dict") else {"message": str(e)}}
+
+    # Validate mode
+    if mode not in ("summary", "details"):
+        error = InvalidModeError(mode)
+        return {"error": error.to_dict()}
 
     # Auto-register project and update last_accessed
     workspace = resolve_workspace(workspace_path)
@@ -1510,8 +1525,8 @@ def get_entity_tasks(
                 f"Entity {entity_id} not found or has been deleted"
             )
 
-        # Build query with optional filters
-        query = """
+        # Build query base with optional filters
+        query_base = """
             SELECT
                 t.*,
                 l.created_at AS link_created_at,
@@ -1526,16 +1541,20 @@ def get_entity_tasks(
 
         # Add optional status filter
         if status is not None:
-            query += " AND t.status = ?"
+            query_base += " AND t.status = ?"
             params.append(status)
 
         # Add optional priority filter
         if priority is not None:
-            query += " AND t.priority = ?"
+            query_base += " AND t.priority = ?"
             params.append(priority)
 
-        # Order by link creation (most recent first)
-        query += " ORDER BY l.created_at DESC"
+        # Get total count before pagination
+        total_count = get_total_count(cursor, query_base)
+
+        # Order by link creation (most recent first) and apply pagination
+        query = query_base + " ORDER BY l.created_at DESC"
+        query += f" LIMIT {limit} OFFSET {offset}"
 
         cursor.execute(query, params)
         tasks = cursor.fetchall()
@@ -1545,11 +1564,19 @@ def get_entity_tasks(
 
         # Apply view transformation based on mode
         if mode == "summary":
-            return [link_metadata_summary(task) for task in tasks_list]
-        elif mode == "details":
-            return tasks_list
+            items = [link_metadata_summary(task) for task in tasks_list]
         else:
-            raise ValueError(f"Invalid mode: {mode}. Must be 'summary' or 'details'")
+            items = tasks_list
+
+        result: dict[str, Any] = {
+            "total_count": total_count,
+            "returned_count": len(items),
+            "limit": limit,
+            "offset": offset,
+            "items": items,
+        }
+
+        return result
 
     finally:
         conn.close()
